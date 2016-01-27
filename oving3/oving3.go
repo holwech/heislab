@@ -21,43 +21,51 @@ package main
 import (
 	"fmt"
 	"net"
-	"time"
+//	"time"
+//	"github.com/holwech/heislab/tcp"
+//	"strconv"
+//	"flag"
 )
 
-func udp_receive(rChan chan []byte){
-	baddr,_ := net.ResolveUDPAddr("udp4", "129.241.187.255:30000")
-	conn, _ := net.ListenUDP("udp4", baddr)
-	defer conn.Close()
+// func udp_receive(rChan chan []byte){
+// 	baddr,_ := net.ResolveUDPAddr("udp4", "129.241.187.255:30000")
+// 	conn, _ := net.ListenUDP("udp4", baddr)
+// 	defer conn.Close()
 
-	for{
-		buf := make([]byte, 1024)
-		conn.ReadFromUDP(buf)
-		rChan <- buf
-	}
-}
+// 	for{
+// 		buf := make([]byte, 1024)
+// 		conn.ReadFromUDP(buf)
+// 		rChan <- buf
+// 	}
+// }
 
-func udp_send(){	
-	ip := "129.241.187.146:"
+// func udp_send(){	
+// 	ip := "129.241.187.146:"
 
-	baddr, _ := net.ResolveUDPAddr("udp4", ip+"20056")
-	conn,_ := net.DialUDP("udp",nil, baddr)
-	defer conn.Close()
+// 	baddr, _ := net.ResolveUDPAddr("udp4", ip+"20056")
+// 	conn,_ := net.DialUDP("udp",nil, baddr)
+// 	defer conn.Close()
 
-	for {
-		conn.Write([]byte("foollol"))
-		time.Sleep(1*time.Second) 	
-	}
-}
+// 	for {
+// 		conn.Write([]byte("foollol"))
+// 		time.Sleep(1*time.Second) 	
+// 	}
+// }
+
+
+
 
 
 func main (){
-	rChan := make(chan []byte)
-
-	go udp_send()
-	go udp_receive(rChan);
-
+	rAddr, _ := net.ResolveTCPAddr("tcp4", "129.241.187.23:33546")
+	lAddr, _ := net.ResolveTCPAddr("tcp4", "129.241.187.146:33546")	
+	conn, _ := net.DialTCP("tcp", lAddr, rAddr)
+	defer conn.Close()
+	conn.Write([]byte("Hei penis \x00"))
 	for{
-		fmt.Println(string(<-rChan))
+		buf := make([]byte, 1024)
+		conn.Read(buf)
+		fmt.Println(string(buf))
 	}
-	
+
 }
