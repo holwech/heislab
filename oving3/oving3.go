@@ -25,23 +25,26 @@ import (
 )
 
 func udp_receive(rChan chan []byte){
-	baddr, _ := net.ResolveUDPAddr("udp4", "255.255.255.255:"+"30000")
-	broadcastListenConn, _ := net.ListenUDP("udp", baddr)
+	baddr,_ := net.ResolveUDPAddr("udp4", ":20056")
+	conn, _ := net.ListenUDP("udp4", baddr)
+	defer conn.Close()
 
 	for{
 		buf := make([]byte, 1024)
-		broadcastListenConn.ReadFromUDP(buf)
-		fmt.Println(string(buf))
+		conn.ReadFromUDP(buf)
+		rChan <- buf
 	}
-	
 }
 
-func udp_send(){
-	baddr, _ := net.ResolveUDPAddr("udp4", "255.255.255.255:"+"20003")
-	broadcastConnection, _ := net.ListenUDP("udp", baddr)
+func udp_send(){	
+	ip := "129.241.187.146:"
+
+	baddr, _ := net.ResolveUDPAddr("udp4", ip+"20056")
+	conn,_ := net.DialUDP("udp",nil, baddr)
+	defer conn.Close()
 
 	for {
-		broadcastConnection.WriteToUDP([]byte("foollol"), baddr)
+		conn.Write([]byte("foollol"))
 		time.Sleep(1*time.Second) 	
 	}
 }
@@ -49,12 +52,12 @@ func udp_send(){
 
 func main (){
 	rChan := make(chan []byte)
-	go udp_send()
-	udp_receive(rChan);
-	for{
-		select {
-			case buf := <- rChan
 
-		}
+	go udp_send()
+	go udp_receive(rChan);
+
+	for{
+		fmt.Println(string(<-rChan))
 	}
+	
 }
