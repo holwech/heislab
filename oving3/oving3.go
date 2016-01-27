@@ -25,7 +25,7 @@ import (
 )
 
 func udp_receive(rChan chan []byte){
-	baddr,_ := net.ResolveUDPAddr("udp4", ":20056")
+	baddr,_ := net.ResolveUDPAddr("udp4", "129.241.187.255:30000")
 	conn, _ := net.ListenUDP("udp4", baddr)
 	defer conn.Close()
 
