@@ -21,6 +21,7 @@ package main
 import (
 	"fmt"
 	"net"
+	"time"
 )
 
 func udp_receive(rChan chan []byte){
@@ -31,14 +32,29 @@ func udp_receive(rChan chan []byte){
 		buf := make([]byte, 1024)
 		broadcastListenConn.ReadFromUDP(buf)
 		fmt.Println(string(buf))
-		rChan <- buf
 	}
 	
 }
 
+func udp_send(){
+	baddr, _ := net.ResolveUDPAddr("udp4", "255.255.255.255:"+"20003")
+	broadcastConnection, _ := net.ListenUDP("udp", baddr)
+
+	for {
+		broadcastConnection.WriteToUDP([]byte("foollol"), baddr)
+		time.Sleep(1*time.Second) 	
+	}
+}
 
 
 func main (){
 	rChan := make(chan []byte)
+	go udp_send()
 	udp_receive(rChan);
+	for{
+		select {
+			case buf := <- rChan
+
+		}
+	}
 }
