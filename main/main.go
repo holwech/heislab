@@ -1,7 +1,20 @@
 package main
 
-import "fmt"
+import (
+	"github.com/holwech/heislab/communication"
+	"fmt"
+)
 
 func main() {
-	fmt.Printf("Hello world \n")
+	communicationTest()
+}
+
+
+func communicationTest() {
+	InputUDP := make (chan string)
+	go communication.Broadcast()
+	go communication.Listen(InputUDP)
+	for{
+		fmt.Println(<- InputUDP)
+	}
 }
