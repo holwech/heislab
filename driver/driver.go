@@ -6,30 +6,67 @@ package driver
 #cgo LDFLAGS: -lpthread -lcomedi -lm
 */
 import "C"
-//import "fmt"
+
+const numFloors = 4
+
+
 func InitHardware(){
 	C.elev_init()
 }
 
-func SetButtonLamp(button, floor, value int){
-	C.elev_set_button_lamp(C.int(button),C.int(floor),C.int(value))
+func SetMotorDirection(dirn int){
+	C.elev_set_motor_direction(C.int(dirn))
 }
 
-/*
-func SetMotorDirection(dirn int);
-	C.elev_set_motor_direction(C.int(dirn));
+func SetOuterPanelLamp(direction, floor, value int){
+	if direction == 0 {
+		C.elev_set_button_lamp(C.int(0),C.int(floor),C.int(value))
+	}else{
+		C.elev_set_button_lamp(C.int(1),C.int(floor),C.int(value))
+	}
 }
-*/
-/*
-func elev_set_floor_indicator(int floor);
-func elev_set_door_open_lamp(int value);
-func elev_set_stop_lamp(int value);
+func SetInnerPanelLamp(btn,floor,value int) {
+	C.elev_set_button_lamp(C.int(2),C.int(floor),C.int(value))
+}
+
+func SetFloorIndicatorLamp(floor int){
+	C.elev_set_floor_indicator(C.int(floor))
+}
+
+func SetDoorLamp(value int){
+	C.elev_set_door_open_lamp(C.int(value))
+}
+
+func SetStopLamp(value int){
+	C.elev_set_stop_lamp(C.int(value))
+}
+
+func ReadInnerPanel(btnChan chan int){
+	for{
+		for floor := 0; floor < numFloors; floor++{
+			if C.elev_get_button_signal(C.int(2), C.int(floor)) != 0{
+				btnChan <- floor
+			}
+		}
+	}
+}
 
 
-func GetButtonSignal(button int, floor int){
-	return int(C.elev_get_button_signal(C.int(button), C.int(floor)))
+func ReadOuterPanel(btnChan chan int, directionChan chan int){
+	for{
+		for floor := 0; floor < numFloors; floor++{
+			for direction := 0; direction < 2; direction++{
+				if C.elev_get_button_signal(C.int(direction), C.int(floor)) != 0{
+					btnChan <- floor
+					directionChan <- direction
+				}
+			}
+		}
+	}
 }
-int elev_get_floor_sensor_signal(void);
-int elev_get_stop_signal(void);
-int elev_get_obstruction_signal(void);
-*/
+
+func ReadFloorSignal(floorChan chan int){
+	for{
+		floorChan <- int(C.elev_get_floor_sensor_signal())
+	}
+}
