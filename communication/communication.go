@@ -8,9 +8,17 @@ import (
 
 func Broadcast() {
 	fmt.Println("=== Broadcasting ===")
-	broadcastAddress, _ := net.ResolveUDPAddr("udp4", "129.241.187.255:20000")
+	broadcastAddress, err := net.ResolveUDPAddr("udp4", "10.20.78.255:30000")
+	if err != nil {
+		fmt.Println("=== ERROR: 1")
+		fmt.Println(err)
+	}
 	localAddress := getLocalAddress(broadcastAddress)
-	connection, _ := net.DialUDP("udp4",localAddress, broadcastAddress)
+	connection, err := net.DialUDP("udp4",localAddress, broadcastAddress)
+	if err != nil {
+		fmt.Println("=== ERROR: 2")
+		fmt.Println(err)
+	}
 	defer connection.Close()
 	for {
 		connection.Write([]byte("Penis?"))
@@ -20,9 +28,17 @@ func Broadcast() {
 
 func Listen(InputUDP chan string) {
 	fmt.Println("=== Listening ===")
-	broadcastAddress, _ := net.ResolveUDPAddr("udp4", "129.241.187.255:20001")
+	broadcastAddress, err := net.ResolveUDPAddr("udp4", "10.20.78.108:30000")
+	if err != nil {
+		fmt.Println("=== ERROR: 3")
+		fmt.Println(err)
+	}
 	localAddress := getLocalAddress(broadcastAddress)
-	connection, _ := net.ListenUDP("udp4", localAddress)
+	connection, err := net.ListenUDP("udp4", localAddress)
+	if err != nil {
+		fmt.Println("=== ERROR: 4")
+		fmt.Println(err)
+	}
 	defer connection.Close()
 	for{
 		buffer := make([]byte, 1024)
@@ -32,10 +48,14 @@ func Listen(InputUDP chan string) {
 }
 
 func getLocalAddress(receiveAddress *net.UDPAddr) (*net.	UDPAddr) {
-	tempConnection, _ := net.DialUDP("udp4", nil, receiveAddress)
+	tempConnection, err := net.DialUDP("udp4", nil, receiveAddress)
 	defer tempConnection.Close()
 	tempAddress := tempConnection.LocalAddr()
-	localAddress, _ := net.ResolveUDPAddr("udp4", tempAddress.String())
+	localAddress, err := net.ResolveUDPAddr("udp4", tempAddress.String())
+	if err != nil {
+		fmt.Println("=== ERROR: 5")
+		fmt.Println(err)
+	}
 	localAddress.Port = 20000
 	return localAddress
 }
