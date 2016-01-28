@@ -1,7 +1,8 @@
 package main
 
-import "fmt"
+import "github.com/holwech/heislab/driver"
 
-func main() {
-	fmt.Printf("Hello world \n")
+func main(){
+	driver.InitHardware()
+	driver.SetButtonLamp(1,1,1)
 }

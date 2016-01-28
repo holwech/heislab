@@ -1,32 +1,35 @@
 package driver
 
 /*
-#include "io.h"
+#include "elev.h"
 #cgo CFLAGS: -std=c11
 #cgo LDFLAGS: -lpthread -lcomedi -lm
 */
 import "C"
-
-func Init() int {
-	return int(C.io_init())
+//import "fmt"
+func InitHardware(){
+	C.elev_init()
 }
 
-func Set_bit(channel int) {
-	C.io_set_bit(C.int(channel))
+func SetButtonLamp(button, floor, value int){
+	C.elev_set_button_lamp(C.int(button),C.int(floor),C.int(value))
 }
 
-func Clear_bit(channel int) {
-	C.io_clear_bit(C.int(channel))
+/*
+func SetMotorDirection(dirn int);
+	C.elev_set_motor_direction(C.int(dirn));
 }
+*/
+/*
+func elev_set_floor_indicator(int floor);
+func elev_set_door_open_lamp(int value);
+func elev_set_stop_lamp(int value);
 
-func Write_analog(channel int, value int) {
-	C.io_write_analog(C.int(channel), C.int(value))
-}
 
-func Read_bit(channel int) int {
-	return int(C.io_read_bit(C.int(channel)))
+func GetButtonSignal(button int, floor int){
+	return int(C.elev_get_button_signal(C.int(button), C.int(floor)))
 }
-
-func Read_analog(channel int) int {
-	return int(C.io_read_analog(C.int(channel)))
-}
+int elev_get_floor_sensor_signal(void);
+int elev_get_stop_signal(void);
+int elev_get_obstruction_signal(void);
+*/
