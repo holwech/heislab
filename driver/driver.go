@@ -1,52 +1,32 @@
 package driver
 
-const ET_comedi             = 0
-const ET_simulation         = 1
+/*
+#include "io.h"
+#cgo CFLAGS: -std=c11
+#cgo LDFLAGS: -lpthread -lcomedi -lm
+*/
+import "C"
 
-//in port 4
-const OBSTRUCTION           = (0x300+23)
-const STOP                  = (0x300+22)
-const BUTTON_COMMAND1       = (0x300+21)
-const BUTTON_COMMAND2       = (0x300+20)
-const BUTTON_COMMAND3       = (0x300+19)
-const BUTTON_COMMAND4       = (0x300+18)
-const BUTTON_UP1            = (0x300+17)
-const BUTTON_UP2            = (0x300+16)
+func Init() int {
+	return int(C.io_init())
+}
 
-//in port 1
-const BUTTON_DOWN2          = (0x200+0)
-const BUTTON_UP3            = (0x200+1)
-const BUTTON_DOWN3          = (0x200+2)
-const BUTTON_DOWN4          = (0x200+3)
-const SENSOR_FLOOR1         = (0x200+4)
-const SENSOR_FLOOR2         = (0x200+5)
-const SENSOR_FLOOR3         = (0x200+6)
-const SENSOR_FLOOR4         = (0x200+7)
+func Set_bit(channel int) {
+	C.io_set_bit(C.int(channel))
+}
 
-//out port 3
-const MOTORDIR              = (0x300+15)
-const LIGHT_STOP            = (0x300+14)
-const LIGHT_COMMAND1        = (0x300+13)
-const LIGHT_COMMAND2        = (0x300+12)
-const LIGHT_COMMAND3        = (0x300+11)
-const LIGHT_COMMAND4        = (0x300+10)
-const LIGHT_UP1             = (0x300+9)
-const LIGHT_UP2             = (0x300+8)
+func Clear_bit(channel int) {
+	C.io_clear_bit(C.int(channel))
+}
 
-//out port 2
-const LIGHT_DOWN2           = (0x300+7)
-const LIGHT_UP3             = (0x300+6)
-const LIGHT_DOWN3           = (0x300+5)
-const LIGHT_DOWN4           = (0x300+4)
-const LIGHT_DOOR_OPEN       = (0x300+3)
-const LIGHT_FLOOR_IND2      = (0x300+1)
-const LIGHT_FLOOR_IND1      = (0x300+0)
-    
-//out port 0
-const MOTOR                 = (0x100+0)
+func Write_analog(channel int, value int) {
+	C.io_write_analog(C.int(channel), C.int(value))
+}
 
-//non-existing ports (for alignment)
-const BUTTON_DOWN1          = -1
-const BUTTON_UP4            = -1
-const LIGHT_DOWN1           = -1
-const LIGHT_UP4             = -1
+func Read_bit(channel int) int {
+	return int(C.io_read_bit(C.int(channel)))
+}
+
+func Read_analog(channel int) int {
+	return int(C.io_read_analog(C.int(channel)))
+}
