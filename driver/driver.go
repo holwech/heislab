@@ -1,52 +1,72 @@
 package driver
 
-const ET_comedi             = 0
-const ET_simulation         = 1
+/*
+#include "elev.h"
+#cgo CFLAGS: -std=c11
+#cgo LDFLAGS: -lpthread -lcomedi -lm
+*/
+import "C"
 
-//in port 4
-const OBSTRUCTION           = (0x300+23)
-const STOP                  = (0x300+22)
-const BUTTON_COMMAND1       = (0x300+21)
-const BUTTON_COMMAND2       = (0x300+20)
-const BUTTON_COMMAND3       = (0x300+19)
-const BUTTON_COMMAND4       = (0x300+18)
-const BUTTON_UP1            = (0x300+17)
-const BUTTON_UP2            = (0x300+16)
+const numFloors = 4
 
-//in port 1
-const BUTTON_DOWN2          = (0x200+0)
-const BUTTON_UP3            = (0x200+1)
-const BUTTON_DOWN3          = (0x200+2)
-const BUTTON_DOWN4          = (0x200+3)
-const SENSOR_FLOOR1         = (0x200+4)
-const SENSOR_FLOOR2         = (0x200+5)
-const SENSOR_FLOOR3         = (0x200+6)
-const SENSOR_FLOOR4         = (0x200+7)
 
-//out port 3
-const MOTORDIR              = (0x300+15)
-const LIGHT_STOP            = (0x300+14)
-const LIGHT_COMMAND1        = (0x300+13)
-const LIGHT_COMMAND2        = (0x300+12)
-const LIGHT_COMMAND3        = (0x300+11)
-const LIGHT_COMMAND4        = (0x300+10)
-const LIGHT_UP1             = (0x300+9)
-const LIGHT_UP2             = (0x300+8)
+func InitHardware(){
+	C.elev_init()
+}
 
-//out port 2
-const LIGHT_DOWN2           = (0x300+7)
-const LIGHT_UP3             = (0x300+6)
-const LIGHT_DOWN3           = (0x300+5)
-const LIGHT_DOWN4           = (0x300+4)
-const LIGHT_DOOR_OPEN       = (0x300+3)
-const LIGHT_FLOOR_IND2      = (0x300+1)
-const LIGHT_FLOOR_IND1      = (0x300+0)
-    
-//out port 0
-const MOTOR                 = (0x100+0)
+func SetMotorDirection(dirn int){
+	C.elev_set_motor_direction(C.int(dirn))
+}
 
-//non-existing ports (for alignment)
-const BUTTON_DOWN1          = -1
-const BUTTON_UP4            = -1
-const LIGHT_DOWN1           = -1
-const LIGHT_UP4             = -1
+func SetOuterPanelLamp(direction, floor, value int){
+	if direction == 0 {
+		C.elev_set_button_lamp(C.int(0),C.int(floor),C.int(value))
+	}else{
+		C.elev_set_button_lamp(C.int(1),C.int(floor),C.int(value))
+	}
+}
+func SetInnerPanelLamp(btn,floor,value int) {
+	C.elev_set_button_lamp(C.int(2),C.int(floor),C.int(value))
+}
+
+func SetFloorIndicatorLamp(floor int){
+	C.elev_set_floor_indicator(C.int(floor))
+}
+
+func SetDoorLamp(value int){
+	C.elev_set_door_open_lamp(C.int(value))
+}
+
+func SetStopLamp(value int){
+	C.elev_set_stop_lamp(C.int(value))
+}
+
+func ReadInnerPanel(btnChan chan int){
+	for{
+		for floor := 0; floor < numFloors; floor++{
+			if C.elev_get_button_signal(C.int(2), C.int(floor)) != 0{
+				btnChan <- floor
+			}
+		}
+	}
+}
+
+
+func ReadOuterPanel(btnChan chan int, directionChan chan int){
+	for{
+		for floor := 0; floor < numFloors; floor++{
+			for direction := 0; direction < 2; direction++{
+				if C.elev_get_button_signal(C.int(direction), C.int(floor)) != 0{
+					btnChan <- floor
+					directionChan <- direction
+				}
+			}
+		}
+	}
+}
+
+func ReadFloorSignal(floorChan chan int){
+	for{
+		floorChan <- int(C.elev_get_floor_sensor_signal())
+	}
+}
