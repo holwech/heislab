@@ -70,7 +70,7 @@ func printError(errMsg string, err error) {
 
 func Broadcast(config *Config, sendUDP chan UDPData) {
 	fmt.Println("Broadcasting message to: " + config.ReceiverIP)
-	broadcastAddress, err := net.ResolveUDPAddr("udp", "255.255.255.255" + config.Port)
+	broadcastAddress, err := net.ResolveUDPAddr("udp", "129.241.187.255" + config.Port)
 	if err != nil {
 		printError("=== ERROR: ResolvingUDPAddr in Broadcast failed.", err)
 	}
