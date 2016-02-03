@@ -1,52 +1,74 @@
 package main
 
 import (
-	"github.com/holwech/heislab/communication"
-	//"time"
+	"github.com/holwech/heislab/driver"
+	"github.com/holwech/heislab/types"
+	"fmt"
 )
 
-func main() {
-	communicationTest()
+
+func InitElevator()(innerChan chan types.InnerOrder,outerChan chan types.OuterOrder, floorChan chan int){
+	innerChan = make(chan types.InnerOrder)
+	outerChan = make(chan types.OuterOrder)
+	floorChan = make(chan int)
+
+	driver.InitHardware()
+	driver.SetMotorDirection(-1)
+
+	go driver.ReadInnerPanel(innerChan)
+	go driver.ReadOuterPanel(outerChan)
+	go driver.ReadFloorSensor(floorChan)
+
+	for{
+		floorVal := <-floorChan
+		if floorVal != -1{
+			driver.SetMotorDirection(0)
+			return
+		}
+
+	}
 }
 
+func RunElevator(newRequest chan int){
+	innerChan,outerChan, floorChan := InitElevator()
+	fmt.Println("Init complete")
 
-func communicationTest() {
-	// receiveChannel := make(chan communication.UDPData)
-	// sendChannel := make(chan communication.UDPData)
-	// config := &communication.Config{
-	// 	SenderIP: "192.168.1.3",
-	// 	ReceiverIP: "255.255.255.255",
-	// 	Port: ":30000",
-	// }
-	// message1 := &communication.UDPData{
-	// 	Identifier: "2323",
-	// 	SenderIP: "192.168.1.3",
-	// 	ReceiverIP: "255.255.255.255",
-	// 	Data: map[string]string{
-	// 		"Command": "UP",
-	// 		"Door": "OPEN",
-	// 	},
-	// }
-	// message2 := &communication.UDPData{
-	// 	Identifier: "2329292923",
-	// 	SenderIP: "192.168.1.3",
-	// 	ReceiverIP: "255.255.255.255",
-	// 	Data: map[string]string{
-	// 		"Command": "UP",
-	// 		"Door": "OPEN",
-	// 	},
-	// }
-	// go communication.Listen(config, receiveChannel)
-	// go communication.Broadcast(config, sendChannel)
-	// time.Sleep(1*time.Second)
+	var state types.ElevatorState
 
-	// sendChannel <- *message1
-	// sendChannel <- *message2
-	// go communication.SendConsoleMsg(config, sendChannel)
-	// for{
-	// 	data := <- receiveChannel
-	// 	communication.PrintMessage(&data)
-	// }
-	communication.Init("10.20.78.108")
-	
+	for{
+		select{
+			case inner := <- innerChan:
+				fmt.Println(inner)
+
+			case outer := <- outerChan:
+				newRequest <- outer.Floor
+
+			case floor := <-floorChan:
+				if floor == -1{
+					state.IsInFloor = false
+				}else{
+					state.Floor = floor
+					state.IsInFloor = true
+					if state.Floor == state.Request{
+						driver.SetMotorDirection(0)
+					} 
+				}
+
+			case request := <- newRequest:
+				state.Request = request
+				if state.Floor < state.Request {
+					driver.SetMotorDirection(1)
+				}else if state.Floor > state.Request{
+					driver.SetMotorDirection(-1)
+				}
+		}
+	}
+}
+
+func main() {
+	request := make(chan int,1)
+	request <- 3
+	go RunElevator(request)
+	neverstop := make(chan int)
+	<-neverstop
 }
