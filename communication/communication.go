@@ -22,7 +22,7 @@ type UDPData struct {
 	Data					map[string]string
 }
 
-func Init(ip string, receiveChannel chan UDPData) {
+func Init(ip string, receiveChannel chan UDPData, sendChannel chan UDPData) {
 	senderIP = ip
 	go listen(receiveChannel)
 	go broadcast(sendChannel)
@@ -132,7 +132,7 @@ func PrintMessage(data *UDPData) {
 }
 
 func Send(receiverIP string, data map[string]string, sendChannel chan UDPData) {
-	message := communication.UDPData{
+	message := UDPData{
 		Identifier: com_id,
 		SenderIP: senderIP,
 		ReceiverIP: receiverIP,
