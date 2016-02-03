@@ -14,6 +14,7 @@ var com_id = "2323" //Identifier for all elevators on the system
 var port = ":3000"
 var senderIP string
 
+
 type UDPData struct {
 	Identifier		string
 	SenderIP			string
@@ -21,10 +22,8 @@ type UDPData struct {
 	Data					map[string]string
 }
 
-func Init(ip string) {
+func Init(ip string, receiveChannel chan UDPData) {
 	senderIP = ip
-	receiveChannel := make(chan UDPData)
-	sendChannel := make(chan UDPData)
 	go listen(receiveChannel)
 	go broadcast(sendChannel)
 }
@@ -130,6 +129,16 @@ func PrintMessage(data *UDPData) {
 	for key, value := range data.Data {
 		fmt.Println("Key: " + key + ", value: " + value)
 	}
+}
+
+func Send(receiverIP string, data map[string]string, sendChannel chan UDPData) {
+	message := communication.UDPData{
+		Identifier: com_id,
+		SenderIP: senderIP,
+		ReceiverIP: receiverIP,
+		Data: data,
+	}
+	sendChannel <- message
 }
 
 // func SendConsoleMsg(config *config, sendUDP chan UDPData) {

@@ -47,6 +47,9 @@ func communicationTest() {
 	// 	data := <- receiveChannel
 	// 	communication.PrintMessage(&data)
 	// }
-	communication.Init("10.20.78.108")
+	receiveChannel := make(chan UDPData)
+	sendChannel := make(chan UDPData)
+	communication.Init("10.20.78.108", receiveChannel)
+	communication.Send("10.20.78.108", data, sendChannel)
 	
 }
