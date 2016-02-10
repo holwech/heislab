@@ -1,13 +1,9 @@
 package communication
 
 import (
-	// "time"
 	"net"
 	"fmt"
-	// "bufio"
-	// "os"
-	"strings"
-	"bytes"
+	"encoding/json"
 )
 
 var com_id = "2323" //Identifier for all elevators on the system
@@ -19,50 +15,13 @@ type UDPData struct {
 	Identifier		string
 	SenderIP			string
 	ReceiverIP		string
-	Data					map[string]string
+	Data					map[string]interface{}
 }
 
 func Init(ip string, receiveChannel chan UDPData, sendChannel chan UDPData) {
 	senderIP = ip
 	go listen(receiveChannel)
 	go broadcast(sendChannel)
-}
-
-func udpDataToString(message *UDPData) (string){
-	var buffer bytes.Buffer
-	buffer.WriteString(message.Identifier)
-	buffer.WriteString(" ")
-	buffer.WriteString(message.SenderIP)
-	buffer.WriteString(" ")
-	buffer.WriteString(message.ReceiverIP)
-	buffer.WriteString(" ")
-	for key, value := range message.Data {
-		buffer.WriteString(key)
-		buffer.WriteString(":")
-		buffer.WriteString(value)
-		buffer.WriteString(";")
-	}
-	convMsg := buffer.String()
-	convMsg = convMsg[:len(convMsg)-1]
-	fmt.Println("Message-object converted to: " + convMsg)
-	return convMsg
-}
-
-func stringToUDPData(message string) (*UDPData) {
-	splitMsg := strings.Split(message, " ")
-	unsplitData := strings.Split(splitMsg[3], ";")
-	data := map[string]string{}
-	for _, unsplitPairs := range unsplitData {
-		pairs := strings.Split(unsplitPairs, ":")
-		data[pairs[0]] = pairs[1]
-	}
-	convMsg := UDPData{
-		Identifier: splitMsg[0],
-		SenderIP: splitMsg[1],
-		ReceiverIP: splitMsg[2],
-		Data: data,
-	}
-	return &convMsg
 }
 
 func printError(errMsg string, err error) {
@@ -85,8 +44,12 @@ func broadcast(sendUDP chan UDPData) {
 	defer connection.Close()
 	for{
 		message := <- sendUDP
-		convMsg := udpDataToString(&message)
-		connection.Write([]byte(convMsg))
+		//convMsg := udpDataToString(&message)
+		convMsg, err := json.Marshal(message)
+		if err != nil {
+			printError("=== ERROR: Convertion of json failed in broadcast", err)
+		}
+		connection.Write(convMsg)
 		fmt.Println("Message sent successfully! \n")
 	}
 }
@@ -104,18 +67,25 @@ func listen(InputUDP chan UDPData) {
 	}
 	defer connection.Close()
 	for{
+		var message UDPData
 		buffer := make([]byte, 4096)
-		connection.ReadFromUDP(buffer)
-		message := string(buffer)
-		identifier := message[:4]
-		fmt.Println("Unprocessed message received: " + message)
-		if (identifier == com_id) {
-			convMsg := stringToUDPData(message)
-			InputUDP <- *convMsg
+		length, _, err := connection.ReadFromUDP(buffer)
+		if err != nil {
+			printError("=== ERROR: ReadFromUDP failed in listen", err)
+		}
+		buffer = buffer[:length]
+		err = json.Unmarshal(buffer, &message)
+		if err != nil {
+			printError("=== ERROR: Unmarshal failed in listen", err)
+		}
+		fmt.Println("Message received from: ")
+		fmt.Println(message.SenderIP)
+		if (message.Identifier == com_id) {
+			InputUDP <- message
 		} else {
 			fmt.Println("=== Data received ===")
 			fmt.Println("Identifier does not match")
-			fmt.Println(message + "\n")
+			fmt.Println(string(buffer) + "\n")
 		}
 	}
 }
@@ -127,11 +97,14 @@ func PrintMessage(data *UDPData) {
 	fmt.Println("ReceiverIP: " + data.ReceiverIP)
 	fmt.Println("= Data =")
 	for key, value := range data.Data {
-		fmt.Println("Key: " + key + ", value: " + value)
+		fmt.Print("Key: ")
+		fmt.Print(key)
+		fmt.Print(", value: ")
+		fmt.Println(value)
 	}
 }
 
-func Send(receiverIP string, data map[string]string, sendChannel chan UDPData) {
+func Send(receiverIP string, data map[string]interface{}, sendChannel chan UDPData) {
 	message := UDPData{
 		Identifier: com_id,
 		SenderIP: senderIP,

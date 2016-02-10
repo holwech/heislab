@@ -1,8 +1,8 @@
-package main
+dpackage main
 
 import (
 	"github.com/holwech/heislab/communication"
-	//"time"
+	"time"
 )
 
 func main() {
@@ -47,9 +47,17 @@ func communicationTest() {
 	// 	data := <- receiveChannel
 	// 	communication.PrintMessage(&data)
 	// }
+	data := map[string]interface{} {
+		"LOL": 1,
+		"FAKA U BTCH": "U EAT MY NUDLS",
+	}
 	receiveChannel := make(chan communication.UDPData)
 	sendChannel := make(chan communication.UDPData)
 	communication.Init("10.20.78.108", receiveChannel, sendChannel)
-	//communication.Send("10.20.78.108", data, sendChannel)
-	
+	time.Sleep(1*time.Second)
+	communication.Send("10.20.78.108", data, sendChannel)
+	for {
+		message := <- receiveChannel
+		communication.PrintMessage(&message)
+	}
 }
