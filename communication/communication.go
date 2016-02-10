@@ -11,11 +11,23 @@ var port = ":3000"
 var senderIP string
 
 
+type commData struct {
+	SenderIP	string
+	ReceiverIP	string
+	DataType string
+	DataValue interface{}
+}
+
+type connData struct {
+	ElevatorID string
+	Status string
+}
+
 type UDPData struct {
 	Identifier		string
 	SenderIP			string
 	ReceiverIP		string
-	Data					map[string]interface{}
+	Data map[string]interface{}
 }
 
 func Init(ip string, receiveChannel chan UDPData, sendChannel chan UDPData) {
