@@ -6,10 +6,13 @@ package driver
 #cgo LDFLAGS: -lpthread -lcomedi -lm
 */
 import "C"
-import "github.com/holwech/heislab/types"
 
 const numFloors = 4
 
+type Order struct{
+	Type string
+	Floor, Direction int
+}
 
 func InitHardware(){
 	C.elev_init()
@@ -42,25 +45,21 @@ func SetStopLamp(value int){
 	C.elev_set_stop_lamp(C.int(value))
 }
 
-func ReadInnerPanel(orderChan chan types.InnerOrder){
+func ReadOrders(orderChan chan Order){
 	for{
 		for floor := 0; floor < numFloors; floor++{
 			if C.elev_get_button_signal(C.int(2), C.int(floor)) != 0{
-				var order types.InnerOrder
+				var order Order
+				order.Type = "inner"
 				order.Floor = floor+1
 				orderChan <- order
 			}
 		}
-	}
-}
-
-
-func ReadOuterPanel(orderChan chan types.OuterOrder){
-	for{
 		for floor := 0; floor < numFloors; floor++{
 			for direction := 0; direction < 2; direction++{
 				if C.elev_get_button_signal(C.int(direction), C.int(floor)) != 0{
-					var order types.OuterOrder
+					var order Order
+					order.Type = "outer"
 					order.Floor = floor+1
 					//Make directions from 1/0 (from elev_get_button_signal) to -1/1
 					if direction == 0{
@@ -72,11 +71,11 @@ func ReadOuterPanel(orderChan chan types.OuterOrder){
 				}
 			}
 		}
-	}
+	}	
 }
 
 func ReadFloorSensor(floorChan chan int){
 	for{
-			floorChan <- int(C.elev_get_floor_sensor_signal())
+		floorChan <- int(C.elev_get_floor_sensor_signal())
 	}
 }

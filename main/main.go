@@ -11,7 +11,11 @@ func main() {
 	communicationData := make(chan communication.CommData)
 	elevatorData := make(chan elevator.ElevData)
 	communication.Init(communicationData)
-	elevator.Init(elevatorData)
+	
+	elevator.Run(elevatorData)
+
+	elevator.GoToFloor(3)
+
 	for{
 		select{
 			case elevatorInput := <- elevatorData:
