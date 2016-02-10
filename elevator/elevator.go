@@ -11,6 +11,10 @@ type ElevData struct {
 	InputValue int
 }
 
+func Init(a chan ElevData){
+	//Penis
+}
+
 func InitElevator()(innerChan chan types.InnerOrder,outerChan chan types.OuterOrder, floorChan chan int){
 	innerChan = make(chan types.InnerOrder)
 	outerChan = make(chan types.OuterOrder)

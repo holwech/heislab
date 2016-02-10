@@ -11,14 +11,14 @@ var port = ":3000"
 var senderIP string
 
 
-type commData struct {
+type CommData struct {
 	SenderIP	string
 	ReceiverIP	string
 	DataType string
 	DataValue interface{}
 }
 
-type connData struct {
+type ConnData struct {
 	ElevatorID string
 	Status string
 }
@@ -29,13 +29,15 @@ type UDPData struct {
 	ReceiverIP		string
 	Data map[string]interface{}
 }
+func Init(achan chan CommData){
 
-func Init(ip string, receiveChannel chan UDPData, sendChannel chan UDPData) {
-	senderIP = ip
-	go listen(receiveChannel)
+}
+/*func Init(sendChannel chan UDPData) {
+	//senderIP = ip
+	//go listen(receiveChannel)
 	go broadcast(sendChannel)
 }
-
+*/
 func printError(errMsg string, err error) {
 	fmt.Println(errMsg)
 	fmt.Println(err)
