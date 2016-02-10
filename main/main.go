@@ -1,11 +1,21 @@
-package main
+dpackage main
 
 import (
+<<<<<<< HEAD
 	"github.com/holwech/heislab/driver"
 	"github.com/holwech/heislab/types"
 	"fmt"
+	"github.com/holwech/heislab/communication"
+	"time"
 )
 
+func main() {
+	request := make(chan int,1)
+	request <- 3
+	go RunElevator(request)
+	neverstop := make(chan int)
+	<-neverstop
+}
 
 func InitElevator()(innerChan chan types.InnerOrder,outerChan chan types.OuterOrder, floorChan chan int){
 	innerChan = make(chan types.InnerOrder)
@@ -34,7 +44,6 @@ func RunElevator(newRequest chan int){
 	fmt.Println("Init complete")
 
 	var state types.ElevatorState
-
 	for{
 		select{
 			case inner := <- innerChan:
@@ -65,10 +74,18 @@ func RunElevator(newRequest chan int){
 	}
 }
 
-func main() {
-	request := make(chan int,1)
-	request <- 3
-	go RunElevator(request)
-	neverstop := make(chan int)
-	<-neverstop
+func communicationTest() {
+	data := map[string]interface{} {
+		"LOL": 1,
+		"FAKA U BTCH": "U EAT MY NUDLS",
+	}
+	receiveChannel := make(chan communication.UDPData)
+	sendChannel := make(chan communication.UDPData)
+	communication.Init("10.20.78.108", receiveChannel, sendChannel)
+	time.Sleep(1*time.Second)
+	communication.Send("10.20.78.108", data, sendChannel)
+	for {
+		message := <- receiveChannel
+		communication.PrintMessage(&message)
+	}
 }
