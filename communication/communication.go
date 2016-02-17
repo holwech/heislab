@@ -15,20 +15,26 @@ type CommData struct {
 	Identifier string
 	SenderIP	string
 	ReceiverIP	string
+	MsgID: int32
 	DataType string
 	DataValue interface{}
 }
 
 type ConnData struct {
-	ElevatorID string
+	SenderIP string
+	MsgID int32
+	sendTime: time.Time
 	Status string
 }
 
 
 func Run(receivedMsg chan CommData, sendCh chan CommData) {
 	receiveCh := make(chan CommData)
+	timeSent := make(chan ConnData)
+	timeReceived := make(chan ConnData)
 	go listen(receiveCh)
-	go broadcast(sendCh)
+	go broadcast(sendCh, timeSent)
+	go checkTimeout(timeSent, timeReceived)
 	for{
 		select{
 			case message := <- receiveCh:
@@ -43,7 +49,19 @@ func printError(errMsg string, err error) {
 	fmt.Println()
 }
 
-func broadcast(sendCh chan CommData) {
+func checkTimeout(timeSent chan ConnData, timeReceived chan ConnData) {
+	messageLog := map[int32][ConnData]
+	for{
+		select{
+			case sentMsg := <- timeSent
+				messageLog
+		}
+	}
+}
+
+
+
+func broadcast(sendCh chan CommData, timeSent chan ConnData) {
 	fmt.Println("COMM: Broadcasting message to: 255.255.255.255" + port)
 	broadcastAddress, err := net.ResolveUDPAddr("udp", "255.255.255.255" + port)
 	if err != nil {
@@ -55,14 +73,24 @@ func broadcast(sendCh chan CommData) {
 		printError("=== ERROR: DialUDP in Broadcast failed.", err)
 	}
 	defer connection.Close()
+	confirm := ConnData{
+		MsgID: 0,
+
+	}
+	msgID int32 = 0
+	var sendTime time.Time
 	for{
 		message := <- sendCh
+		message.MsgID = msgID
 		convMsg, err := json.Marshal(message)
 		if err != nil {
 			printError("=== ERROR: Convertion of json failed in broadcast", err)
 		}
 		connection.Write(convMsg)
 		fmt.Println("COMM: Message sent successfully! \n")
+
+		sendTime = time.Now()
+		msgID += 1
 	}
 }
 
@@ -120,7 +148,6 @@ func getLocalIP() (string) {
 		os.Stderr.WriteString("Oops: " + err.Error() + "\n")
 		os.Exit(1)
 	}
-
 	for _, a := range addrs {
 		if ipnet, ok := a.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
 			if ipnet.IP.To4() != nil {
@@ -136,6 +163,7 @@ func Send(receiverIP string, dataType string, dataValue interface{}, sendCh chan
 		Identifier: com_id,
 		SenderIP: getLocalIP(),
 		ReceiverIP: receiverIP,
+		MsgID: 0,
 		DataType: dataType,
 		DataValue: dataValue,
 	}
