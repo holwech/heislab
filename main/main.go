@@ -1,37 +1,28 @@
 package main
 
 import (
-	"github.com/holwech/heislab/elevator"
 	"fmt"
+	"time"
 	"github.com/holwech/heislab/communication"
 )
 
 func main() {
-	connectionData := make(chan communication.ConnData)
+	test()
+}
+
+
+
+func test() {
 	communicationData := make(chan communication.CommData)
-	elevatorData := make(chan elevator.ElevData)
-	communication.Init(communicationData)
-	elevator.Init(elevatorData)
+	sendCh := make(chan communication.CommData)
+	go communication.Run(communicationData, sendCh)
+	time.Sleep(1 * time.Second)
+	count := 0
 	for{
-		select{
-			case elevatorInput := <- elevatorData:
-				handleElevInput(elevatorInput)
-			case dataInput := <- communicationData:
-				handleDataInput(dataInput)
-			case connectionInput := <- connectionData:
-				handleConnectionInput(connectionInput)
-		}
+		communication.Send("10.20.78.108", "Test", "Penis", sendCh)
+		time.Sleep(10 * time.Second)
+		communication.PrintMessage(<- communicationData)
+		fmt.Println(count)
+		count += 1
 	}
-}
-
-func handleElevInput(input elevator.ElevData) {
-	fmt.Printf("Input type: %s, input value: %d", input.InputType, input.InputValue)
-}
-
-func handleDataInput(input communication.CommData) {
-	fmt.Println(input)	
-}
-
-func handleConnectionInput(input communication.ConnData) {
-	fmt.Println(input)
 }
