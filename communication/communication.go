@@ -23,17 +23,17 @@ type CommData struct {
 type ConnData struct {
 	SenderIP string
 	MsgID int32
-	sendTime: time.Time
+	SendTime: time.Time
 	Status string
 }
 
 
 func Run(receivedMsg chan CommData, sendCh chan CommData) {
 	receiveCh := make(chan CommData)
-	timeSent := make(chan ConnData)
+	metadata := make(chan ConnData)
 	timeReceived := make(chan ConnData)
 	go listen(receiveCh)
-	go broadcast(sendCh, timeSent)
+	go broadcast(sendCh, metadata)
 	go checkTimeout(timeSent, timeReceived)
 	for{
 		select{
@@ -51,17 +51,25 @@ func printError(errMsg string, err error) {
 
 func checkTimeout(timeSent chan ConnData, timeReceived chan ConnData) {
 	messageLog := map[int32][ConnData]
+	ticker := time.NewTicker(50 * time.Milliseconds)
 	for{
 		select{
-			case sentMsg := <- timeSent
-				messageLog
+		case metadata := <- timeSent:
+			messageLog[metadata.MsgID] = metadata
+		case <- ticker:
+			currentTime := time.Now()
+			for msgID, metadata := range messageLog {
+				if currentTime.Sub(metadata.sendTime) > 0.050 {
+					
+				}
+			}
 		}
 	}
 }
 
 
 
-func broadcast(sendCh chan CommData, timeSent chan ConnData) {
+func broadcast(sendCh chan CommData, metadata chan ConnData) {
 	fmt.Println("COMM: Broadcasting message to: 255.255.255.255" + port)
 	broadcastAddress, err := net.ResolveUDPAddr("udp", "255.255.255.255" + port)
 	if err != nil {
@@ -73,10 +81,7 @@ func broadcast(sendCh chan CommData, timeSent chan ConnData) {
 		printError("=== ERROR: DialUDP in Broadcast failed.", err)
 	}
 	defer connection.Close()
-	confirm := ConnData{
-		MsgID: 0,
-
-	}
+	timeSent := ConnData{}
 	msgID int32 = 0
 	var sendTime time.Time
 	for{
@@ -90,6 +95,12 @@ func broadcast(sendCh chan CommData, timeSent chan ConnData) {
 		fmt.Println("COMM: Message sent successfully! \n")
 
 		sendTime = time.Now()
+		timeSent{
+			"SenderIP": localAddress.IP,
+			"MsgID": msgID,
+			"SendTime": time.Now(),
+			"Status": "Sent", 
+		}
 		msgID += 1
 	}
 }
