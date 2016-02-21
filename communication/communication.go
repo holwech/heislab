@@ -3,15 +3,16 @@ package communication
 import (
 	"net"
 	"fmt"
+	"os"
 	"encoding/json"
 )
 
-var com_id = "2323" //Identifier for all elevators on the system
-var port = ":3000"
-var senderIP string
+const com_id = "2323" //Identifier for all elevators on the system
+const port = ":3000"
 
 
 type CommData struct {
+	Identifier string
 	SenderIP	string
 	ReceiverIP	string
 	DataType string
@@ -23,57 +24,54 @@ type ConnData struct {
 	Status string
 }
 
-type UDPData struct {
-	Identifier		string
-	SenderIP			string
-	ReceiverIP		string
-	Data map[string]interface{}
-}
-func Init(achan chan CommData){
 
+func Run(receivedMsg chan CommData, sendCh chan CommData) {
+	receiveCh := make(chan CommData)
+	go listen(receiveCh)
+	go broadcast(sendCh)
+	for{
+		select{
+			case message := <- receiveCh:
+				receivedMsg <- message
+		}
+	}
 }
-/*func Init(sendChannel chan UDPData) {
-	//senderIP = ip
-	//go listen(receiveChannel)
-	go broadcast(sendChannel)
-}
-*/
+
 func printError(errMsg string, err error) {
 	fmt.Println(errMsg)
 	fmt.Println(err)
 	fmt.Println()
 }
 
-func broadcast(sendUDP chan UDPData) {
-	fmt.Println("Broadcasting message to: 255.255.255.255" + port)
+func broadcast(sendCh chan CommData) {
+	fmt.Println("COMM: Broadcasting message to: 255.255.255.255" + port)
 	broadcastAddress, err := net.ResolveUDPAddr("udp", "255.255.255.255" + port)
 	if err != nil {
 		printError("=== ERROR: ResolvingUDPAddr in Broadcast failed.", err)
 	}
-	localAddress, err := net.ResolveUDPAddr("udp", senderIP)
+	localAddress, err := net.ResolveUDPAddr("udp", getLocalIP())
 	connection, err := net.DialUDP("udp", localAddress, broadcastAddress)
 	if err != nil {
 		printError("=== ERROR: DialUDP in Broadcast failed.", err)
 	}
 	defer connection.Close()
 	for{
-		message := <- sendUDP
-		//convMsg := udpDataToString(&message)
+		message := <- sendCh
 		convMsg, err := json.Marshal(message)
 		if err != nil {
 			printError("=== ERROR: Convertion of json failed in broadcast", err)
 		}
 		connection.Write(convMsg)
-		fmt.Println("Message sent successfully! \n")
+		fmt.Println("COMM: Message sent successfully! \n")
 	}
 }
 
-func listen(InputUDP chan UDPData) {
+func listen(receivedMsg chan CommData) {
 	localAddress, err := net.ResolveUDPAddr("udp", port)
 	if err != nil {
 		printError("=== ERROR: ResolvingUDPAddr in Listen failed.", err)
 	}
-	fmt.Print("Listening to port ")
+	fmt.Print("COMM: Listening to port ")
 	fmt.Println(localAddress.Port)
 	connection, err := net.ListenUDP("udp", localAddress)
 	if err != nil {
@@ -81,7 +79,7 @@ func listen(InputUDP chan UDPData) {
 	}
 	defer connection.Close()
 	for{
-		var message UDPData
+		var message CommData
 		buffer := make([]byte, 4096)
 		length, _, err := connection.ReadFromUDP(buffer)
 		if err != nil {
@@ -92,40 +90,56 @@ func listen(InputUDP chan UDPData) {
 		if err != nil {
 			printError("=== ERROR: Unmarshal failed in listen", err)
 		}
-		fmt.Println("Message received from: ")
+		fmt.Print("COMM: Message received from: ")
 		fmt.Println(message.SenderIP)
 		if (message.Identifier == com_id) {
-			InputUDP <- message
+			receivedMsg <- message
 		} else {
-			fmt.Println("=== Data received ===")
-			fmt.Println("Identifier does not match")
-			fmt.Println(string(buffer) + "\n")
+			fmt.Println("COMM: Data received")
+			fmt.Println("COMM: Identifier does not match")
+			fmt.Println("COMM: " + string(buffer) + "\n")
 		}
 	}
 }
 
-func PrintMessage(data *UDPData) {
+func PrintMessage(data CommData) {
 	fmt.Println("=== Data received ===")
 	fmt.Println("Identifier: " + data.Identifier)
 	fmt.Println("SenderIP: " + data.SenderIP)
 	fmt.Println("ReceiverIP: " + data.ReceiverIP)
 	fmt.Println("= Data =")
-	for key, value := range data.Data {
-		fmt.Print("Key: ")
-		fmt.Print(key)
-		fmt.Print(", value: ")
-		fmt.Println(value)
-	}
+	fmt.Println("Data type: " + data.DataType)
+	fmt.Print("DataValue: ")
+	fmt.Println(data.DataValue)
 }
 
-func Send(receiverIP string, data map[string]interface{}, sendChannel chan UDPData) {
-	message := UDPData{
-		Identifier: com_id,
-		SenderIP: senderIP,
-		ReceiverIP: receiverIP,
-		Data: data,
+func getLocalIP() (string) {
+	var localIP string
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		os.Stderr.WriteString("Oops: " + err.Error() + "\n")
+		os.Exit(1)
 	}
-	sendChannel <- message
+
+	for _, a := range addrs {
+		if ipnet, ok := a.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
+			if ipnet.IP.To4() != nil {
+				localIP = ipnet.IP.String()
+			}
+		}
+	}
+	return localIP
+}
+
+func Send(receiverIP string, dataType string, dataValue interface{}, sendCh chan CommData) {
+	message := CommData{
+		Identifier: com_id,
+		SenderIP: getLocalIP(),
+		ReceiverIP: receiverIP,
+		DataType: dataType,
+		DataValue: dataValue,
+	}
+	sendCh <- message
 }
 
 // func SendConsoleMsg(config *config, sendUDP chan UDPData) {
