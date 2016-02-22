@@ -5,9 +5,9 @@ import (
 	"os"
 	"time"
 	"fmt"
-	"strings"
 	"math/rand"
 	"os/exec"
+	"encoding/binary"
 )
 
 
@@ -18,9 +18,9 @@ func checkError(err error) {
 	}
 }
 
-func checkAlive(quit <-chan bool) <-chan bool{
-
-	timeout := make(chan bool)
+func checkPrimary(quit <-chan bool) (<-chan int){
+	timeout := make(chan int)
+	
 	go func(){
 		address := "localhost:28000"
 		udpAddr, err := net.ResolveUDPAddr("udp4", address)
@@ -30,21 +30,24 @@ func checkAlive(quit <-chan bool) <-chan bool{
 		checkError(err)
 		conn.SetReadDeadline(time.Now().Add(1*time.Second))
 		
-		var buf [8]byte
+		prevVal := 0
+		buf := make([]byte, 8)
 		for{
 			select{
 			case <- quit:
 				close(timeout)
 				return
 			default:
-				n, _, err := conn.ReadFromUDP(buf[0:])
+				_, _, err := conn.ReadFromUDP(buf[0:])
 				if nerr, ok := err.(net.Error); ok && nerr.Timeout(){
 					select {
-						case timeout <- true:
+						case timeout <- prevVal:
 						default:
 					}
-				}else if strings.Compare("alive",string(buf[0:n])) == 0{	
-						conn.SetReadDeadline(time.Now().Add(1*time.Second))
+				}else{
+				 	recvVal := int(binary.BigEndian.Uint64(buf)) 
+				 	prevVal = recvVal
+					conn.SetReadDeadline(time.Now().Add(1*time.Second))		
 				}
 			}
 		}
@@ -52,20 +55,25 @@ func checkAlive(quit <-chan bool) <-chan bool{
 	return timeout
 }
 
-func pingAlive(quit <-chan bool){
+func pingAlive(pingVal <-chan int, quit <-chan bool){
 	service := "localhost:28000"
 	udpAddr, err := net.ResolveUDPAddr("udp4", service)
 	checkError(err)
 	conn, err := net.DialUDP("udp", nil, udpAddr)
 	defer conn.Close()
 	checkError(err)
+	ping := 0
 
 	for{
 		select{
 		case <-quit:
 			return
+		case ping = <-pingVal:
 		default:
-			_, err = conn.Write([]byte("alive"))
+			buf := make([]byte,10)
+		    binary.BigEndian.PutUint64(buf, uint64(ping))
+
+			_, err = conn.Write(buf)
 			checkError(err)
 			time.Sleep(10*time.Millisecond)	
 		}
@@ -73,12 +81,6 @@ func pingAlive(quit <-chan bool){
 }	
 
 
-func primary(){
-	for i := 1;	i < 1000; i++{
-		fmt.Println(i)
-		time.Sleep(1*time.Second)
-	}
-}
 
 func randomExit(duration int){
 	rand.Seed(time.Now().UTC().UnixNano())
@@ -96,17 +98,25 @@ func randomExit(duration int){
 
 func main(){
 	quitCheck := make(chan bool)
-	timeout := checkAlive(quitCheck)
+	timeout := checkPrimary(quitCheck)
 
-	quitCheck <-<- timeout
+	currentVal := <- timeout
+	quitCheck <- true
 
 	quitPing := make(chan bool)
-	go pingAlive(quitPing)
-	go primary()
+	pingVal := make (chan int)
+
+	go pingAlive(pingVal, quitPing)
+	go randomExit(10)
 
     cmd := exec.Command("bash", "-c", "start go run oving6.go")
     cmd.Start()
 
-    neverExit := make(chan bool)
-    <-neverExit
+	for{
+		pingVal <- currentVal		
+		fmt.Println(currentVal)
+		currentVal += 1
+		time.Sleep(1*time.Second)
+	}
+	fmt.Println("finito")
 }
