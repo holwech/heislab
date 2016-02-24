@@ -27,29 +27,31 @@ type ConnData struct {
 	Status string
 }
 
-
-func Run(receivedMsg chan CommData, sendCh chan CommData) {
-	receiveCh := make(chan CommData)
-	metadata := make(chan ConnData)
-	timeReceived := make(chan ConnData)
-	go listen(receiveCh)
-	go broadcast(sendCh, metadata)
-	go checkTimeout(timeSent, timeReceived)
-	for{
-		select{
-			case message := <- receiveCh:
-				receivedMsg <- message
-		}
-	}
-}
-
 func printError(errMsg string, err error) {
 	fmt.Println(errMsg)
 	fmt.Println(err)
 	fmt.Println()
 }
 
-func checkTimeout(timeSent chan ConnData, timeReceived chan ConnData) {
+func Run(receivedMsg chan CommData, sendCh chan CommData, connStatus chan ConnData) {
+	receiveCh := make(chan CommData)
+	metadata := make(chan ConnData)
+	sendingStatus := make(chan ConnData)
+	go listen(receiveCh)
+	go broadcast(sendCh, metadata)
+	go checkTimeout(timeSent, sendingStatus)
+	for{
+		select{
+			case message := <- receiveCh:
+				if message.
+			case message := <- sendingStatus
+				connStatus <- message
+		}
+	}
+}
+
+
+func checkTimeout(timeSent chan ConnData, sendingStatus chan ConnData) {
 	messageLog := map[int32][ConnData]
 	ticker := time.NewTicker(50 * time.Milliseconds)
 	for{
@@ -60,7 +62,10 @@ func checkTimeout(timeSent chan ConnData, timeReceived chan ConnData) {
 			currentTime := time.Now()
 			for msgID, metadata := range messageLog {
 				if currentTime.Sub(metadata.sendTime) > 0.050 {
-					
+					sendingFailed := metadata
+					sendingFailed.Status = "Failed"
+					delete(messageLog, msgID)
+					sendingStatus <- sendingFailed
 				}
 			}
 		}
@@ -99,7 +104,7 @@ func broadcast(sendCh chan CommData, metadata chan ConnData) {
 			"SenderIP": localAddress.IP,
 			"MsgID": msgID,
 			"SendTime": time.Now(),
-			"Status": "Sent", 
+			"Status": "Sent",
 		}
 		msgID += 1
 	}
