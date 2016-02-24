@@ -1,53 +1,41 @@
-package elevator
+package main
 
 import (
 	"github.com/holwech/heislab/driver"
+	"fmt"
 )
 
-type ElevData struct {
-	InputType string
-	InputValue int
-}
-
-type ElevatorState struct{
-	Floor, Direction, RequestedFloor int
-	IsInFloor bool
-}
-
-func Run(elevData chan ElevData){
-	orderChan := make(chan driver.Order)
-	floorChan := make(chan int)
-	go driver.ReadOrders(orderChan)
-	go driver.ReadFloorSensor(floorChan)
-
-	//Move elevator down until floor is reached
+func Init() (<-chan driver.InnerOrder,<-chan driver.OuterOrder, <-chan int){
 	driver.InitHardware()
-	driver.SetMotorDirection(-1)
+	
+	innerChan := driver.ReadInnerPanel()
+	outerChan := driver.ReadOuterPanel()
+	floorChan := driver.ReadFloorSensor()
 
-	for{
-		floorVal := <-floorChan
-		if floorVal != -1{
-			driver.SetMotorDirection(0)
-			break
+	//Drive down to closest floor
+	currentFloor := <-floorChan
+	if currentFloor == -1{
+		driver.SetMotorDirection(-1)
+		for currentFloor < 1{
+			currentFloor =<- floorChan
 		}
+		driver.SetMotorDirection(0)
 	}
 
-	//Continously read inputs 
+	return innerChan,outerChan,floorChan
+}
+
+func main(){
+	innerChan, outerChan, floorChan := Init()
+
 	for{
 		select{
-
+			case innerOrder := <-innerChan:
+				fmt.Println(innerOrder)
+			case outerOrder := <-outerChan:
+				fmt.Println(outerOrder)
+			case floorReached := <-floorChan:
+				fmt.Println(floorReached)
 		}
 	}
-}
-
-func GoToFloor(floor int) chan bool {
-	state.RequestedFloor = floor
-}
-
-
-arrived := GoToFloor(3)
-select {
-	whgatever
-	<-arrived:
-		stuff when we have arroved at floor 3
 }

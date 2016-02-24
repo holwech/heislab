@@ -20,7 +20,7 @@ func TestSetMotor(t *testing.T){
 	SetMotorDirection(-1);
 	for{
 		floor := <- currentFloor
-		if 1<floor && floor < 3{
+		if floor > 0{
 			SetMotorDirection(0)
 			break;
 		}
