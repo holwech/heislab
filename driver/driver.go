@@ -7,10 +7,14 @@ package driver
 */
 import "C"
 
-const numFloors = 4
+const cOuterPanelUp C.int = C.int(0)
+const cOuterPanelDown C.int = C.int(1)
+const cInnerPanel C.int = C.int(2)
 
-type Order struct{
-	Type string
+type InnerOrder struct{
+	Floor int
+}
+type OuterOrder struct{
 	Floor, Direction int
 }
 
@@ -23,18 +27,18 @@ func SetMotorDirection(direction int){
 }
 
 func SetOuterPanelLamp(direction, floor, value int){
-	if direction == 0 {
-		C.elev_set_button_lamp(C.int(0),C.int(floor),C.int(value))
-	}else{
-		C.elev_set_button_lamp(C.int(1),C.int(floor),C.int(value))
+	if direction == 1 {
+		C.elev_set_button_lamp(cOuterPanelUp,castCfloor(floor),C.int(value))
+	}else if direction == -1{
+		C.elev_set_button_lamp(cOuterPanelDown,castCfloor(floor),C.int(value))
 	}
 }
 func SetInnerPanelLamp(floor,value int) {
-	C.elev_set_button_lamp(C.int(2),C.int(floor),C.int(value))
+	C.elev_set_button_lamp(cInnerPanel,castCfloor(floor),C.int(value))
 }
 
 func SetFloorIndicatorLamp(floor int){
-	C.elev_set_floor_indicator(C.int(floor))
+	C.elev_set_floor_indicator(castCfloor(floor))
 }
 
 func SetDoorLamp(value int){
@@ -45,37 +49,85 @@ func SetStopLamp(value int){
 	C.elev_set_stop_lamp(C.int(value))
 }
 
-func ReadOrders(orderChan chan Order){
-	for{
-		for floor := 0; floor < numFloors; floor++{
-			if C.elev_get_button_signal(C.int(2), C.int(floor)) != 0{
-				var order Order
-				order.Type = "inner"
-				order.Floor = floor+1
-				orderChan <- order
-			}
-		}
-		for floor := 0; floor < numFloors; floor++{
-			for direction := 0; direction < 2; direction++{
-				if C.elev_get_button_signal(C.int(direction), C.int(floor)) != 0{
-					var order Order
-					order.Type = "outer"
-					order.Floor = floor+1
-					//Make directions from 1/0 (from elev_get_button_signal) to -1/1
-					if direction == 0{
-						order.Direction = 1
-					}else  {
-						order.Direction = -1
+func ReadInnerPanel() <-chan InnerOrder{
+	orderChan := make(chan InnerOrder)
+	go func(){
+		buttonPressed := [4]bool {false,false,false,false}
+		for{
+			for floor := 1; floor <= 4; floor++{
+				if C.elev_get_button_signal(cInnerPanel,castCfloor(floor)) != 0{
+					if buttonPressed[floor-1] == false{
+						var order InnerOrder
+						order.Floor = floor
+						orderChan <- order	
+						buttonPressed[floor-1] = true
 					}
-					orderChan <- order
+				}else{
+					buttonPressed[floor-1] = false
 				}
-			}
+			} 
 		}
-	}	
+	}()
+	return orderChan
 }
 
-func ReadFloorSensor(floorChan chan int){
-	for{
-		floorChan <- int(C.elev_get_floor_sensor_signal())
-	}
+func ReadOuterPanel() <-chan OuterOrder{
+	orderChan := make(chan OuterOrder)
+	go func(){
+		buttonPressedUp := [4]bool {false,false,false,false}
+		buttonPressedDown := [4]bool {false,false,false,false}
+		for{
+			for floor := 1; floor <= 4; floor++{
+				if C.elev_get_button_signal(cOuterPanelUp,castCfloor(floor)) != 0{
+					if buttonPressedUp[floor-1] == false{				
+						var order OuterOrder
+						order.Floor = floor
+						order.Direction = 1
+						orderChan <- order
+						buttonPressedUp[floor-1] = true
+					}
+				}else{
+					buttonPressedUp[floor-1] = false
+				}
+				if C.elev_get_button_signal(cOuterPanelDown,castCfloor(floor)) != 0{
+					if buttonPressedDown[floor-1] == false{
+						var order OuterOrder
+						order.Floor = floor
+						order.Direction = -1
+						orderChan <- order	
+						buttonPressedDown[floor-1] = true
+					}
+				} else{
+					buttonPressedDown[floor-1] = false
+				}
+			} 
+		}
+	}()
+	return orderChan
+}
+
+func ReadFloorSensor() <-chan int{
+	floorChan := make(chan int)
+	go func(){
+		for{
+			floorChan <- castFloor(C.elev_get_floor_sensor_signal())
+		}
+	}()
+	return floorChan
+}
+
+func castCfloor(floor int) C.int{
+	return C.int(floor-1)
+}
+
+func castFloor(cFloor C.int) int{
+	sensorVal := int(cFloor)
+	floor := 0
+
+	if sensorVal == -1{
+		floor = -1
+	} else{
+		floor = sensorVal +1
+	} 
+	return floor
 }
