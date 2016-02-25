@@ -8,9 +8,9 @@ import (
 func Init() (<-chan driver.InnerOrder,<-chan driver.OuterOrder, <-chan int){
 	driver.InitHardware()
 	
-	innerChan := driver.ReadInnerPanel()
-	outerChan := driver.ReadOuterPanel()
-	floorChan := driver.ReadFloorSensor()
+	innerChan := driver.ListenInnerPanel()
+	outerChan := driver.ListenOuterPanel()
+	floorChan := driver.ListenFloorSensor()
 
 	//Drive down to closest floor
 	currentFloor := <-floorChan
@@ -25,9 +25,12 @@ func Init() (<-chan driver.InnerOrder,<-chan driver.OuterOrder, <-chan int){
 	return innerChan,outerChan,floorChan
 }
 
+
 func main(){
 	innerChan, outerChan, floorChan := Init()
-
+	floor := <- floorChan
+	fmt.Println(floor)
+	
 	for{
 		select{
 			case innerOrder := <-innerChan:

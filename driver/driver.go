@@ -49,7 +49,7 @@ func SetStopLamp(value int){
 	C.elev_set_stop_lamp(C.int(value))
 }
 
-func ReadInnerPanel() <-chan InnerOrder{
+func ListenInnerPanel() <-chan InnerOrder{
 	orderChan := make(chan InnerOrder)
 	go func(){
 		buttonPressed := [4]bool {false,false,false,false}
@@ -71,7 +71,7 @@ func ReadInnerPanel() <-chan InnerOrder{
 	return orderChan
 }
 
-func ReadOuterPanel() <-chan OuterOrder{
+func ListenOuterPanel() <-chan OuterOrder{
 	orderChan := make(chan OuterOrder)
 	go func(){
 		buttonPressedUp := [4]bool {false,false,false,false}
@@ -106,11 +106,16 @@ func ReadOuterPanel() <-chan OuterOrder{
 	return orderChan
 }
 
-func ReadFloorSensor() <-chan int{
+func ListenFloorSensor() <-chan int{
 	floorChan := make(chan int)
 	go func(){
+		prevFloor := 0;
 		for{
-			floorChan <- castFloor(C.elev_get_floor_sensor_signal())
+			currentFloor := castFloor(C.elev_get_floor_sensor_signal())
+			if currentFloor != prevFloor{
+				floorChan <- currentFloor
+				prevFloor = currentFloor
+			}
 		}
 	}()
 	return floorChan

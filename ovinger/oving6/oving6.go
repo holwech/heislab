@@ -22,7 +22,7 @@ func checkPrimary(quit <-chan bool) (<-chan int){
 	timeout := make(chan int)
 	
 	go func(){
-		address := "127.0.0.1:25000"
+		address := "localhost:25000"
 		udpAddr, err := net.ResolveUDPAddr("udp4", address)
 		checkError(err)
 		conn, err := net.ListenUDP("udp4", udpAddr)

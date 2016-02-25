@@ -10,13 +10,13 @@ import (
 
 
 
-func TestReadFloor(t *testing.T){
-	currentFloor := ReadFloorSensor()	
+func TestListenFloor(t *testing.T){
+	currentFloor := ListenFloorSensor()	
 	fmt.Printf("Current floor %d \n", <-currentFloor)
 }
 
 func TestSetMotor(t *testing.T){
-	currentFloor := ReadFloorSensor()
+	currentFloor := ListenFloorSensor()
 	SetMotorDirection(-1);
 	for{
 		floor := <- currentFloor
@@ -62,14 +62,14 @@ func TestStopLamp(t *testing.T){
 	SetStopLamp(0)
 }
 
-func TestReadInner(t *testing.T){
-	innerOrders := ReadInnerPanel()
+func TestListenInner(t *testing.T){
+	innerOrders := ListenInnerPanel()
 	fmt.Println(<-innerOrders)
 	fmt.Println(<-innerOrders)
 }
 
-func TestReadOuter(t *testing.T){
-	innerOrders := ReadOuterPanel()
+func TestListenOuter(t *testing.T){
+	innerOrders := ListenOuterPanel()
 	fmt.Println(<-innerOrders)
 	fmt.Println(<-innerOrders)
 }
