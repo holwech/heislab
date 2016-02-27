@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"encoding/json"
+	"time"
 )
 
 const com_id = "2323" //Identifier for all elevators on the system
@@ -15,7 +16,7 @@ type CommData struct {
 	Identifier string
 	SenderIP	string
 	ReceiverIP	string
-	MsgID: int32
+	MsgID int32
 	DataType string
 	DataValue interface{}
 }
@@ -23,7 +24,7 @@ type CommData struct {
 type ConnData struct {
 	SenderIP string
 	MsgID int32
-	SendTime: time.Time
+	SendTime time.Time
 	Status string
 }
 
@@ -33,39 +34,65 @@ func printError(errMsg string, err error) {
 	fmt.Println()
 }
 
-func Run(receivedMsg chan CommData, sendCh chan CommData, connStatus chan ConnData) {
-	receiveCh := make(chan CommData)
-	metadata := make(chan ConnData)
-	sendingStatus := make(chan ConnData)
-	go listen(receiveCh)
-	go broadcast(sendCh, metadata)
-	go checkTimeout(timeSent, sendingStatus)
-	for{
-		select{
-			case message := <- receiveCh:
-				if message.
-			case message := <- sendingStatus
-				connStatus <- message
+func Run(sendCh chan CommData) (<- chan CommData, <- chan ConnData) {
+	commReceive := make(chan CommData)
+	commSentStatus := make(chan ConnData)
+	connStatus := make(chan ConnData)
+	receivedMsg := make(chan CommData)
+	go listen(commReceive)
+	go broadcast(sendCh, commSentStatus)
+	go checkTimeout(commSentStatus, connStatus)
+	go func() {
+		for{
+			message := <- commReceive
+			if message.DataType == "Received"{
+				response := ConnData{
+					SenderIP: message.SenderIP,
+					MsgID: message.MsgID,
+					SendTime: time.Now(),
+					Status: "Received",
+				}
+				commSentStatus <- response
+			}else{
+				receivedMsg <- message
+				response := CommData{
+					Identifier: com_id,
+					SenderIP: getLocalIP(),
+					ReceiverIP: message.SenderIP,
+					MsgID: message.MsgID,
+					DataType: "Received",
+					DataValue: time.Now(),
+				}
+				sendCh <- response
+			}
 		}
-	}
+	}()
+	return receivedMsg, connStatus
 }
 
 
-func checkTimeout(timeSent chan ConnData, sendingStatus chan ConnData) {
-	messageLog := map[int32][ConnData]
-	ticker := time.NewTicker(50 * time.Milliseconds)
+func checkTimeout(commSentStatus chan ConnData, connStatus chan ConnData) {
+	var messageLog map[int32]ConnData
+	ticker := time.NewTicker(50 * time.Millisecond).C
 	for{
 		select{
-		case metadata := <- timeSent:
-			messageLog[metadata.MsgID] = metadata
+		case metadata := <- commSentStatus:
+			if metadata.Status == "Received" {
+				delete(messageLog, metadata.MsgID)
+				connStatus <- metadata
+			}else if metadata.Status == "Sent"{
+				messageLog[metadata.MsgID] = Conn
+				messageLog[metadata.MsgID] = metadata
+			}
 		case <- ticker:
 			currentTime := time.Now()
 			for msgID, metadata := range messageLog {
-				if currentTime.Sub(metadata.sendTime) > 0.050 {
+				timeDiff := currentTime.Sub(metadata.SendTime)
+				if timeDiff.Seconds() > 0.050 {
 					sendingFailed := metadata
 					sendingFailed.Status = "Failed"
 					delete(messageLog, msgID)
-					sendingStatus <- sendingFailed
+					connStatus <- sendingFailed
 				}
 			}
 		}
@@ -74,7 +101,7 @@ func checkTimeout(timeSent chan ConnData, sendingStatus chan ConnData) {
 
 
 
-func broadcast(sendCh chan CommData, metadata chan ConnData) {
+func broadcast(sendCh chan CommData, commSentStatus chan ConnData) {
 	fmt.Println("COMM: Broadcasting message to: 255.255.255.255" + port)
 	broadcastAddress, err := net.ResolveUDPAddr("udp", "255.255.255.255" + port)
 	if err != nil {
@@ -86,9 +113,7 @@ func broadcast(sendCh chan CommData, metadata chan ConnData) {
 		printError("=== ERROR: DialUDP in Broadcast failed.", err)
 	}
 	defer connection.Close()
-	timeSent := ConnData{}
-	msgID int32 = 0
-	var sendTime time.Time
+	var msgID int32 = 0
 	for{
 		message := <- sendCh
 		message.MsgID = msgID
@@ -98,14 +123,13 @@ func broadcast(sendCh chan CommData, metadata chan ConnData) {
 		}
 		connection.Write(convMsg)
 		fmt.Println("COMM: Message sent successfully! \n")
-
-		sendTime = time.Now()
-		timeSent{
-			"SenderIP": localAddress.IP,
-			"MsgID": msgID,
-			"SendTime": time.Now(),
-			"Status": "Sent",
+		timeSent := ConnData{
+			SenderIP: getLocalIP(),
+			MsgID: msgID,
+			SendTime: time.Now(),
+			Status: "Sent",
 		}
+		commSentStatus <- timeSent
 		msgID += 1
 	}
 }
@@ -174,7 +198,7 @@ func getLocalIP() (string) {
 	return localIP
 }
 
-func Send(receiverIP string, dataType string, dataValue interface{}, sendCh chan CommData) {
+func ResolveMsg(receiverIP string, dataType string, dataValue interface{}) (commData *CommData) {
 	message := CommData{
 		Identifier: com_id,
 		SenderIP: getLocalIP(),
@@ -183,7 +207,7 @@ func Send(receiverIP string, dataType string, dataValue interface{}, sendCh chan
 		DataType: dataType,
 		DataValue: dataValue,
 	}
-	sendCh <- message
+	return &message
 }
 
 // func SendConsoleMsg(config *config, sendUDP chan UDPData) {
