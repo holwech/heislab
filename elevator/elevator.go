@@ -5,6 +5,19 @@ import (
 	"fmt"
 )
 
+type Behaviour int
+const (
+	Idle Behaviour = iota
+	Moving
+	Stopped
+)
+
+type ElevatorState struct{
+	Floor int
+	Direction int
+	CurrentBehaviour Behaviour
+}
+
 func Init() (<-chan driver.InnerOrder,<-chan driver.OuterOrder, <-chan int){
 	driver.InitHardware()
 	
@@ -17,7 +30,7 @@ func Init() (<-chan driver.InnerOrder,<-chan driver.OuterOrder, <-chan int){
 	if currentFloor == -1{
 		driver.SetMotorDirection(-1)
 		for currentFloor < 1{
-			currentFloor =<- floorChan
+			currentFloor = <-floorChan
 		}
 		driver.SetMotorDirection(0)
 	}
@@ -27,9 +40,12 @@ func Init() (<-chan driver.InnerOrder,<-chan driver.OuterOrder, <-chan int){
 
 
 func main(){
+	var eState ElevatorState
 	innerChan, outerChan, floorChan := Init()
-	floor := <- floorChan
-	fmt.Println(floor)
+	
+	eState.Floor = <-floorChan
+	eState.Direction = 0
+	eState.CurrentBehaviour = Idle
 	
 	for{
 		select{
