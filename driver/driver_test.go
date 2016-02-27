@@ -64,14 +64,16 @@ func TestStopLamp(t *testing.T){
 
 func TestListenInner(t *testing.T){
 	innerOrders := ListenInnerPanel()
+	fmt.Println("Press inner buttons twice")
 	fmt.Println(<-innerOrders)
 	fmt.Println(<-innerOrders)
 }
 
 func TestListenOuter(t *testing.T){
-	innerOrders := ListenOuterPanel()
-	fmt.Println(<-innerOrders)
-	fmt.Println(<-innerOrders)
+	outerOrders := ListenOuterPanel()
+	fmt.Println("Press outer buttons twice")
+	fmt.Println(<-outerOrders)
+	fmt.Println(<-outerOrders)
 }
 
 
