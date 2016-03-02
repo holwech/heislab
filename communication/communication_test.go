@@ -6,7 +6,7 @@ import (
 	"github.com/satori/go.uuid"
 )
 
-func TestMain(t *testing.T) {
+func TestSend(t *testing.T) {
 	sendCh := make(chan CommData)
 	receiveCh, connStatus := Run(sendCh)
 	go RunPrintConn(connStatus)
@@ -22,6 +22,20 @@ func TestMain(t *testing.T) {
 	}
 }
 
+
+func TestListen(t *testing.T) {
+	sendCh := make(chan CommData)
+	receiveCh, connStatus := Run(sendCh)
+	go RunPrintConn(connStatus)
+	go RunPrintMsg(receiveCh)
+	time.Sleep(1 * time.Second)
+	count := 0
+	for{
+		time.Sleep(10 * time.Second)
+		count += 1
+	}
+}
+
 func RunPrintMsg(receiveCh <-chan CommData) {
 	for{
 		PrintMessage(<- receiveCh)
@@ -32,3 +46,4 @@ func RunPrintConn(connStatus <-chan ConnData) {
 		PrintConnData(<- connStatus)
 	}
 }
+
