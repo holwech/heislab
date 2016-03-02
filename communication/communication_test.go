@@ -3,20 +3,32 @@ package communication
 import (
 	"testing"
 	"time"
-	"fmt"
+	"github.com/satori/go.uuid"
 )
 
 func TestMain(t *testing.T) {
 	sendCh := make(chan CommData)
-	receiveCh,_ := Run(sendCh)
+	receiveCh, connStatus := Run(sendCh)
+	go RunPrintConn(connStatus)
+	go RunPrintMsg(receiveCh)
 	time.Sleep(1 * time.Second)
 	count := 0
 	for{
-		msg := ResolveMsg("10.20.78.108", "Test", "Penis")
+		msgID := uuid.NewV4()
+		msg := ResolveMsg("10.20.78.108", msgID.String(), "Test", count) 
 		sendCh <- *msg
 		time.Sleep(10 * time.Second)
-		PrintMessage(<-receiveCh)
-		fmt.Println(count)
 		count += 1
+	}
+}
+
+func RunPrintMsg(receiveCh <-chan CommData) {
+	for{
+		PrintMessage(<- receiveCh)
+	}
+}
+func RunPrintConn(connStatus <-chan ConnData) {
+	for{
+		PrintConnData(<- connStatus)
 	}
 }
