@@ -68,7 +68,7 @@ func msgSorter(commReceive <-chan CommData, receivedMsg chan<- CommData, commSen
 			}else{
 				response := CommData{
 					Identifier: com_id,
-					SenderIP: getLocalIP(),
+					SenderIP: GetLocalIP(),
 					ReceiverIP: message.SenderIP,
 					MsgID: message.MsgID,
 					DataType: "Received",
@@ -82,7 +82,7 @@ func msgSorter(commReceive <-chan CommData, receivedMsg chan<- CommData, commSen
 		case message := <- sendCh:
 			commSend <- message
 			timeSent := ConnData{
-				SenderIP: getLocalIP(),
+				SenderIP: GetLocalIP(),
 				MsgID: message.MsgID,
 				SendTime: time.Now(),
 				Status: "Sent",
@@ -129,7 +129,7 @@ func broadcast(sendCh chan CommData, commSentStatus chan ConnData) {
 	if err != nil {
 		printError("=== ERROR: ResolvingUDPAddr in Broadcast failed.", err)
 	}
-	localAddress, err := net.ResolveUDPAddr("udp", getLocalIP())
+	localAddress, err := net.ResolveUDPAddr("udp", GetLocalIP())
 	connection, err := net.DialUDP("udp", localAddress, broadcastAddress)
 	if err != nil {
 		printError("=== ERROR: DialUDP in Broadcast failed.", err)
@@ -201,7 +201,7 @@ func PrintConnData(data ConnData) {
 	fmt.Println("Status:", data.Status)
 }
 
-func getLocalIP() (string) {
+func GetLocalIP() (string) {
 	var localIP string
 	addrs, err := net.InterfaceAddrs()
 	if err != nil {
@@ -221,7 +221,7 @@ func getLocalIP() (string) {
 func ResolveMsg(receiverIP string, msgID string, dataType string, dataValue interface{}) (commData *CommData) {
 	message := CommData{
 		Identifier: com_id,
-		SenderIP: getLocalIP(),
+		SenderIP: GetLocalIP(),
 		ReceiverIP: receiverIP,
 		MsgID: msgID,
 		DataType: dataType,
