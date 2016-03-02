@@ -1,7 +1,7 @@
 package orders
 
 /*WANT: 
-Possibility to add new orders
+
 
 handle orders:
 -needs to chose which elevator is going to handle an order
@@ -11,12 +11,13 @@ handle orders:
 -pass elevator states to order handling?
 -in that case, should be read only
 
-remove orders when finished
 
 */
 
-struct Orders{
-	InnerOrders = 
-	OuterOrdersUp
-	OuterOrdersDown
-}
+/*
+After some thinking-consulting:
+orders should be kept in elevator module as inner orders could
+be considered part of elevator state
+and
+outer orders is global
+*/

@@ -98,6 +98,7 @@ type ElevatorState struct{
 	Floor int
 	Direction int
 	CurrentBehaviour Behaviour
+	InnerOrders [4] bool 
 }
 
 //Listen to inputs from slaves and send actions back
@@ -109,14 +110,12 @@ func master(recv chan communication.CommData,send chan communication.CommData){
 	*/
 	
 	elevatorStates := make(map[string]ElevatorState)
-	innerOrders := make(map[string][]bool)
-	outerOrdersUp := []bool{false,false,false}
-	outerOrdersDown := []bool{false,false,false}
+	outerOrdersUp := []bool{false,false,false,false}
+	outerOrdersDown := []bool{false,false,false,false}
 	
 
 	testState := ElevatorState{1,0, Idle}
 	elevators["localhost"] =testState
-	innerOrders["localhost"] = []bool{false,false,false,false}
 
 	for{
 		select{
@@ -125,32 +124,39 @@ func master(recv chan communication.CommData,send chan communication.CommData){
 			switch commData.DataType{
 			case "INNER":
 				order := commData.DataValue.(driver.InnerOrder)
-				innerOrders["localhost"][order.Floor-1] = true
+				if elevatorStates["localhost"].Floor != order.floor{
+					var elevator = elevators["localhost"]
+					elevator.InnerOrders[order.floor-1] = true
+					elevators["localhost"] = elevator
+					command, hasCommand := orders.GetCommand(elevatorStates,outerOrdersUp,outerOrdersDown)
+					if hasCommand{
+						send <- communication.CommData{
+							DataType = command,
+						}
+					}
+				}
 			case "OUTER":
 				order := commData.DataValue.(driver.OuterOrder)
 				if(order.Direction == 1){
 					outerOrdersUp[order.Floor-1] = true
 				}else{
-					outerOrdersDown[order.Floor-2] = true
+					outerOrdersDown[order.Floor-1] = true
+				}
+				command, hasCommand := orders.GetCommand(elevatorStates,outerOrdersUp,outerOrdersDown)
+				if hasCommand{
+					send <- communication.CommData{
+						DataType = command,
+					}
 				}
 			case "FLOOR":
 				floor := commData.DataValue.(int)
 				var elevator = elevators["localhost"]
 				elevator.Floor = floor
 				elevators["localhost"] = elevator
-				if floor == 1{
-					com := communication.CommData{
-						DataType:"MOVEUP",
-					}
-					send <- com
-				}else if floor == 4{
-					com := communication.CommData{
-						DataType:"MOVEDOWN",
-					}
-					send <- com
-				}
+
 			}
 		}
+
 	}
 
 }
