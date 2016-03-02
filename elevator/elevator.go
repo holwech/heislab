@@ -32,7 +32,7 @@ func Init() (<-chan driver.InnerOrder,<-chan driver.OuterOrder, <-chan int){
 //Slave -------------------------------------------
 func main(){
 	innerChan, outerChan, floorChan := Init()
-	driver.SetMotorDirection(1)
+
 	/*
 	recvChan := make(chan communication.CommData)
 	sendChan := make(chan communication.CommData)
@@ -86,7 +86,6 @@ func main(){
 }
 
 
-
 //Master-------------------------
 type Behaviour int
 const (
@@ -109,15 +108,14 @@ func master(recv chan communication.CommData,send chan communication.CommData){
 	go communication.Run(recvChan,sendChan)
 	*/
 	
-	elevators := make(map[string]ElevatorState)
-	testState := ElevatorState{1,0, Idle}
-	elevators["localhost"] =testState
-
-
+	elevatorStates := make(map[string]ElevatorState)
 	innerOrders := make(map[string][]bool)
 	outerOrdersUp := []bool{false,false,false}
 	outerOrdersDown := []bool{false,false,false}
+	
 
+	testState := ElevatorState{1,0, Idle}
+	elevators["localhost"] =testState
 	innerOrders["localhost"] = []bool{false,false,false,false}
 
 	for{
@@ -126,13 +124,9 @@ func master(recv chan communication.CommData,send chan communication.CommData){
 			//Decode message, do corresponding action
 			switch commData.DataType{
 			case "INNER":
-				fmt.Printf("Received in master/INNER: ")
-				fmt.Println(commData.DataValue)
 				order := commData.DataValue.(driver.InnerOrder)
 				innerOrders["localhost"][order.Floor-1] = true
 			case "OUTER":
-				fmt.Printf("Received in master/OUTER: ")
-				fmt.Println(commData.DataValue)
 				order := commData.DataValue.(driver.OuterOrder)
 				if(order.Direction == 1){
 					outerOrdersUp[order.Floor-1] = true
@@ -140,13 +134,10 @@ func master(recv chan communication.CommData,send chan communication.CommData){
 					outerOrdersDown[order.Floor-2] = true
 				}
 			case "FLOOR":
-				fmt.Printf("Received in master/FLOOR: ")
-				fmt.Println(commData.DataValue)
 				floor := commData.DataValue.(int)
 				var elevator = elevators["localhost"]
 				elevator.Floor = floor
 				elevators["localhost"] = elevator
-				fmt.Println(elevators["localhost"])
 				if floor == 1{
 					com := communication.CommData{
 						DataType:"MOVEUP",
