@@ -54,7 +54,9 @@ func sorter(nw *Network, commSend chan<- communication.CommData, commReceive <-c
 				nw.slaveReceive <- convMsg
 			}
 			nw.masterReceive <- convMsg
-		}
+		case status <- commStatus:
+			//TODO: Legg til et felt til i communication som skiller mellom master og slave
+		}	
 	}
 }
 

@@ -37,7 +37,7 @@ func printError(errMsg string, err error) {
 
 
 func Run(sendCh chan CommData) (<- chan CommData, <- chan ConnData) {
-	commReceive := make(chan CommData, 1)
+	commReceive := make(chan CommData)
 	commSentStatus := make(chan ConnData)
 	commSend := make(chan CommData)
 	connStatus := make(chan ConnData)
