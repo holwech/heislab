@@ -5,36 +5,27 @@ import (
 	"fmt"
 	"os"
 	"encoding/json"
+	"time"
 )
 
 const com_id = "2323" //Identifier for all elevators on the system
 const port = ":3000"
 
-
+// DataValue should ONLY be int og string
 type CommData struct {
 	Identifier string
 	SenderIP	string
 	ReceiverIP	string
+	MsgID string
 	DataType string
 	DataValue interface{}
 }
 
 type ConnData struct {
-	ElevatorID string
+	SenderIP string
+	MsgID string
+	SendTime time.Time
 	Status string
-}
-
-
-func Run(receivedMsg chan CommData, sendCh chan CommData) {
-	receiveCh := make(chan CommData)
-	go listen(receiveCh)
-	go broadcast(sendCh)
-	for{
-		select{
-			case message := <- receiveCh:
-				receivedMsg <- message
-		}
-	}
 }
 
 func printError(errMsg string, err error) {
@@ -43,7 +34,96 @@ func printError(errMsg string, err error) {
 	fmt.Println()
 }
 
-func broadcast(sendCh chan CommData) {
+
+
+func Run(sendCh chan CommData) (<- chan CommData, <- chan ConnData) {
+	commReceive := make(chan CommData, 1)
+	commSentStatus := make(chan ConnData)
+	commSend := make(chan CommData)
+	connStatus := make(chan ConnData)
+	receivedMsg := make(chan CommData)
+	go listen(commReceive)
+	go broadcast(commSend, commSentStatus)
+	go checkTimeout(commSentStatus, connStatus)
+	go msgSorter(commReceive, receivedMsg, commSentStatus, commSend, sendCh)
+	return receivedMsg, connStatus
+}
+
+func msgSorter(commReceive <-chan CommData, receivedMsg chan<- CommData, commSentStatus chan<- ConnData, commSend chan<- CommData, sendCh <-chan CommData) {
+	for{
+		select{
+			// When messages are received
+		case message := <- commReceive:
+			// If message is a receive-confirmation
+			fmt.Println("Reached sorter")
+			if message.DataType == "Received"{
+				response := ConnData{
+					SenderIP: message.SenderIP,
+					MsgID: message.MsgID,
+					SendTime: time.Now(),
+					Status: "Received",
+				}
+				commSentStatus <- response
+				// If message is a normal message 
+			}else{
+				response := CommData{
+					Identifier: com_id,
+					SenderIP: getLocalIP(),
+					ReceiverIP: message.SenderIP,
+					MsgID: message.MsgID,
+					DataType: "Received",
+					DataValue: time.Now(),
+				}
+				fmt.Println("Sending response")
+				receivedMsg <- message
+				commSend <- response
+			}
+			// When messages are sent
+		case message := <- sendCh:
+			commSend <- message
+			timeSent := ConnData{
+				SenderIP: getLocalIP(),
+				MsgID: message.MsgID,
+				SendTime: time.Now(),
+				Status: "Sent",
+			}
+			commSentStatus <- timeSent
+		}
+	}
+}
+
+func checkTimeout(commSentStatus chan ConnData, connStatus chan ConnData) {
+	messageLog := make(map[string]ConnData)
+	ticker := time.NewTicker(50 * time.Millisecond).C
+	for{
+		select{
+		case metadata := <- commSentStatus:
+			if metadata.Status == "Received" {
+				delete(messageLog, metadata.MsgID)
+				fmt.Println("COMM: Message received, sending verification. ID:", metadata.MsgID)
+				connStatus <- metadata
+			}else{
+				messageLog[metadata.MsgID] = metadata
+				fmt.Println("COMM: Metadata stored")
+			}
+		case <- ticker:
+			currentTime := time.Now()
+			for msgID, metadata := range messageLog {
+				timeDiff := currentTime.Sub(metadata.SendTime)
+				if timeDiff.Seconds() > 0.50 {
+					sendingFailed := metadata
+					sendingFailed.Status = "Failed"
+					delete(messageLog, msgID)
+					connStatus <- sendingFailed
+				}
+			}
+		}
+	}
+}
+
+
+
+func broadcast(sendCh chan CommData, commSentStatus chan ConnData) {
 	fmt.Println("COMM: Broadcasting message to: 255.255.255.255" + port)
 	broadcastAddress, err := net.ResolveUDPAddr("udp", "255.255.255.255" + port)
 	if err != nil {
@@ -66,7 +146,7 @@ func broadcast(sendCh chan CommData) {
 	}
 }
 
-func listen(receivedMsg chan CommData) {
+func listen(commReceive chan CommData) {
 	localAddress, err := net.ResolveUDPAddr("udp", port)
 	if err != nil {
 		printError("=== ERROR: ResolvingUDPAddr in Listen failed.", err)
@@ -90,10 +170,10 @@ func listen(receivedMsg chan CommData) {
 		if err != nil {
 			printError("=== ERROR: Unmarshal failed in listen", err)
 		}
-		fmt.Print("COMM: Message received from: ")
-		fmt.Println(message.SenderIP)
 		if (message.Identifier == com_id) {
-			receivedMsg <- message
+			fmt.Print("COMM: Message received from: ")
+			fmt.Println(message.SenderIP)
+			commReceive <- message
 		} else {
 			fmt.Println("COMM: Data received")
 			fmt.Println("COMM: Identifier does not match")
@@ -104,13 +184,21 @@ func listen(receivedMsg chan CommData) {
 
 func PrintMessage(data CommData) {
 	fmt.Println("=== Data received ===")
-	fmt.Println("Identifier: " + data.Identifier)
-	fmt.Println("SenderIP: " + data.SenderIP)
-	fmt.Println("ReceiverIP: " + data.ReceiverIP)
+	fmt.Println("Identifier: ", data.Identifier)
+	fmt.Println("SenderIP: ", data.SenderIP)
+	fmt.Println("ReceiverIP:", data.ReceiverIP)
+	fmt.Println("Message ID:", data.MsgID)
 	fmt.Println("= Data =")
-	fmt.Println("Data type: " + data.DataType)
-	fmt.Print("DataValue: ")
-	fmt.Println(data.DataValue)
+	fmt.Println("Data type:", data.DataType)
+	fmt.Println("DataValue:", data.DataValue)
+}
+
+func PrintConnData(data ConnData) {
+	fmt.Println("=== Connection data ===")
+	fmt.Println("SenderIP:", data.SenderIP)
+	fmt.Println("Message ID:", data.MsgID)
+	fmt.Println("Time:", data.SendTime)
+	fmt.Println("Status:", data.Status)
 }
 
 func getLocalIP() (string) {
@@ -120,7 +208,6 @@ func getLocalIP() (string) {
 		os.Stderr.WriteString("Oops: " + err.Error() + "\n")
 		os.Exit(1)
 	}
-
 	for _, a := range addrs {
 		if ipnet, ok := a.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
 			if ipnet.IP.To4() != nil {
@@ -131,15 +218,16 @@ func getLocalIP() (string) {
 	return localIP
 }
 
-func Send(receiverIP string, dataType string, dataValue interface{}, sendCh chan CommData) {
+func ResolveMsg(receiverIP string, msgID string, dataType string, dataValue interface{}) (commData *CommData) {
 	message := CommData{
 		Identifier: com_id,
 		SenderIP: getLocalIP(),
 		ReceiverIP: receiverIP,
+		MsgID: msgID,
 		DataType: dataType,
 		DataValue: dataValue,
 	}
-	sendCh <- message
+	return &message
 }
 
 // func SendConsoleMsg(config *config, sendUDP chan UDPData) {
