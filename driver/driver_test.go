@@ -20,7 +20,7 @@ func TestSetMotor(t *testing.T){
 	SetMotorDirection(-1);
 	for{
 		floor := <- currentFloor
-		if floor > 0{
+		if floor >= 0{
 			SetMotorDirection(0)
 			break;
 		}
@@ -28,23 +28,23 @@ func TestSetMotor(t *testing.T){
 }
 
 func TestOuterLights(t *testing.T){
-	SetOuterPanelLamp(1,1,1)
-	SetOuterPanelLamp(-1,4,1)
+	SetOuterPanelLamp(1,0,1)
+	SetOuterPanelLamp(-1,3,1)
 	time.Sleep(3*time.Second)
-	SetOuterPanelLamp(1,1,0)
-	SetOuterPanelLamp(-1,4,0)
+	SetOuterPanelLamp(1,0,0)
+	SetOuterPanelLamp(-1,3,0)
 }
 
 func TestInnerLights(t *testing.T){
-	SetInnerPanelLamp(1,1)
-	SetInnerPanelLamp(4,1)
+	SetInnerPanelLamp(0,1)
+	SetInnerPanelLamp(3,1)
 	time.Sleep(3*time.Second)
-	SetInnerPanelLamp(1,0)
-	SetInnerPanelLamp(4,0)
+	SetInnerPanelLamp(0,0)
+	SetInnerPanelLamp(3,0)
 }
 
 func TestFloorIndicator(t *testing.T){
-	for i := 1; i <= 4; i++{
+	for i := 0; i < 4; i++{
 		SetFloorIndicatorLamp(i)
 		time.Sleep(500*time.Millisecond)
 	}

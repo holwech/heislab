@@ -1,6 +1,9 @@
-package master
+package main
 
-import network
+import (
+	//"github.com/holwech/heislab/network"
+	"fmt"
+)
 
 type Behaviour int
 const (
@@ -16,62 +19,75 @@ type ElevatorState struct{
 	InnerOrders [4] bool 
 }
 
-//Listen to inputs from slaves and send actions back
-func master(recv chan communication.CommData,send chan communication.CommData){
-	//messageChan, statusChan := InitNetwork()
-	//sendChan := network get send chan
-
 	
-	elevatorStates := make(map[string]ElevatorState)
+func getCommand(inner map[string]*ElevatorState, up []bool, down []bool) (network.Message,bool){
+	var newCommand bool
+	var command network.Message;
+
+	//TODO: Figure out how to generate orders to slave
+}
+
+
+//Listen to inputs from slaves and send actions back
+func main(){
+	receiveMessage, receiveStatus := network.InitNetwork()
+	
+	//mutex map to prevent simultaneous RW?
+	//Will the elevator states be garbage collected if created and
+	// added in a local scope?
+	elevatorStates := make(map[string]*ElevatorState)
 	outerOrdersUp := []bool{false,false,false,false}
 	outerOrdersDown := []bool{false,false,false,false}
 	
-
-	testState := ElevatorState{1,0, Idle}
-	elevators["localhost"] =testState
-
+	//When do we send new orders to elevators?
 	for{
-		select{
-		case message := <- messageChan:
-			//Decode message, do corresponding action
-			switch commData.DataType{
-			case "INNER":
-				order := commData.DataValue.(driver.InnerOrder)
-				if elevatorStates["localhost"].Floor != order.floor{
-					var elevator = elevators["localhost"]
-					elevator.InnerOrders[order.floor-1] = true
-					elevators["localhost"] = elevator
-					command, hasCommand := orders.GetCommand(elevatorStates,outerOrdersUp,outerOrdersDown)
-					if hasCommand{
-						send <- communication.CommData{
-							DataType = command,
-						}
-					}
-				}
-			case "OUTER":
-				order := commData.DataValue.(driver.OuterOrder)
-				if(order.Direction == 1){
-					outerOrdersUp[order.Floor-1] = true
-				}else{
-					outerOrdersDown[order.Floor-1] = true
-				}
-				command, hasCommand := orders.GetCommand(elevatorStates,outerOrdersUp,outerOrdersDown)
-				if hasCommand{
-					send <- communication.CommData{
-						DataType = command,
-					}
-				}
-			case "FLOOR":
-				floor := commData.DataValue.(int)
-				var elevator = elevators["localhost"]
-				elevator.Floor = floor
-				elevators["localhost"] = elevator
-
+	select{
+	case message := <- messageChan:
+		switch message.Response{
+		case "INNER":
+			floor := int(message.Content)
+			elevator := elevatorStates[message.Sender]
+			if elevator.Floor != floor{
+				elevator.InnerOrders[floor] = true
+			} 
+		case "OUTER":
+			floor := int(message.Content[0])
+			direction := int(message.Content[1])
+			if direction == 1{
+				outerOrdersUp[floor] = true
+			}else if direction == -1{
+				outerOrdersDown[floor] = true
 			}
-		case connStatus := <- statusChan:
-			update connected
+		case "FLOOR":
+			floor := int(response)
+			elevator := elevatorStates[message.Sender]
+			elevator.Floor = floor
 		}
-
+		command,commandOk := getCommand(inner map[string]*ElevatorState, up []bool, down []bool)
+		if commandOk{
+			network.Send(command)
+		}
+	case connStatus := <- statusChan:
+		switch connStatus.Response{
+		case "NEW":
+			//Add elevator
+		case "TIMEOUT":
+			//Remove elevator from connected
+		}
 	}
-
+	}
 }
+
+/*
+func main(){
+	elevatorStates := make(map[string]*ElevatorState)
+
+	if (1 == 1){
+		
+	elevator := &ElevatorState{Floor : 1}
+	elevatorStates["localhost"] = elevator	
+	}
+	fmt.Println(*elevatorStates["localhost"])
+	elevatorStates["localhost"].Floor = 2
+	fmt.Println(*elevatorStates["localhost"])	
+}*/
