@@ -19,6 +19,60 @@ type ElevatorState struct{
 	InnerOrders [4] bool 
 }
 
+type System struct{
+	ElevatorStates map[string]ElevatorState
+	OuterOrdersUp [4]bool
+	OuterOrdersDown [4]bool
+}
+
+func NewSystem() *System{
+	var s System
+	s.ElevatorStates = make(map[string]ElevatorState)
+	return &s
+}
+
+func (sys *System) AddInnerOrder(elevatorIP string, floor int) bool{
+	alreadyAdded := false
+	elevator, exists := sys.ElevatorStates[elevatorIP];
+
+	if exists{
+		if elevator.InnerOrders[floor]{
+			alreadyAdded = true
+		}else{
+			elevator.InnerOrders[floor] = true	
+			sys.ElevatorStates[elevatorIP] = elevator
+		}
+	}
+	return exists && !alreadyAdded
+}
+
+func (sys *System) AddOuterOrder(floor, direction int) bool{
+	alreadyAdded := false
+	if direction == -1{
+		if sys.OuterOrdersDown[floor]{
+			alreadyAdded = true
+		}else{
+			sys.OuterOrdersDown[floor] = true
+		}
+	}else if direction == 1{
+		if sys.OuterOrdersUp[floor]{
+			alreadyAdded = true
+		}else{
+			sys.OuterOrdersUp[floor] = true
+		}
+	}
+	return !alreadyAdded
+}
+
+func (sys *System) AddElevator(elevatorIP string) bool{
+	_, alreadyAdded := sys.ElevatorStates[elevatorIP]
+	if !alreadyAdded{
+		sys.ElevatorStates[elevatorIP] = ElevatorState{}
+	}
+	return !alreadyAdded
+}
+
+
 	
 func getCommand(inner map[string]*ElevatorState, up []bool, down []bool) (network.Message,bool){
 	var newCommand bool
@@ -62,6 +116,8 @@ func main(){
 			floor := int(response)
 			elevator := elevatorStates[message.Sender]
 			elevator.Floor = floor
+		case "MOVING":
+			//update elevator state
 		}
 		command,commandOk := getCommand(inner map[string]*ElevatorState, up []bool, down []bool)
 		if commandOk{
