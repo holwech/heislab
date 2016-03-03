@@ -72,10 +72,15 @@ func (sys *System) AddElevator(elevatorIP string) bool{
 	return !alreadyAdded
 }
 
+func (sys *System) UpdateFloor(elevatorIP string, floor int){
+	elevator := sys.ElevatorStates[elevatorIP]
+	elevator.Floor = floor
+	sys.ElevatorStates[elevatorIP] = elevator
+}
+
 
 	
-func getCommand(inner map[string]*ElevatorState, up []bool, down []bool) (network.Message,bool){
-	var newCommand bool
+func (sys *System) GenerateSlaveCommand() (network.Message){
 	var command network.Message;
 
 	//TODO: Figure out how to generate orders to slave
@@ -85,44 +90,28 @@ func getCommand(inner map[string]*ElevatorState, up []bool, down []bool) (networ
 //Listen to inputs from slaves and send actions back
 func main(){
 	receiveMessage, receiveStatus := network.InitNetwork()
-	
+	sys := NewSystem()
 	//mutex map to prevent simultaneous RW?
 	//Will the elevator states be garbage collected if created and
 	// added in a local scope?
-	elevatorStates := make(map[string]*ElevatorState)
-	outerOrdersUp := []bool{false,false,false,false}
-	outerOrdersDown := []bool{false,false,false,false}
 	
+	
+
 	//When do we send new orders to elevators?
 	for{
 	select{
-	case message := <- messageChan:
+	case message := <- messageChan:		
 		switch message.Response{
 		case "INNER":
-			floor := int(message.Content)
-			elevator := elevatorStates[message.Sender]
-			if elevator.Floor != floor{
-				elevator.InnerOrders[floor] = true
-			} 
+			sys.AddInnerOrder(message.Sender, int(message.Content))
 		case "OUTER":
-			floor := int(message.Content[0])
-			direction := int(message.Content[1])
-			if direction == 1{
-				outerOrdersUp[floor] = true
-			}else if direction == -1{
-				outerOrdersDown[floor] = true
-			}
+			ok := sys.AddOuterOrder(int(message.Content)[0],int(message.Content)[1])
 		case "FLOOR":
-			floor := int(response)
-			elevator := elevatorStates[message.Sender]
-			elevator.Floor = floor
-		case "MOVING":
+			sys.UpdateFloor(message.Sender,int(message.Content))
+		case "MOVEMENT":
 			//update elevator state
 		}
-		command,commandOk := getCommand(inner map[string]*ElevatorState, up []bool, down []bool)
-		if commandOk{
-			network.Send(command)
-		}
+		command := sys.GetSlaveCommand()
 	case connStatus := <- statusChan:
 		switch connStatus.Response{
 		case "NEW":
