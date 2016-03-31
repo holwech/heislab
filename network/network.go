@@ -7,6 +7,7 @@ import (
 type Message struct {
 	Sender, Receiver, ID, Response, Content string
 }
+
 type Network struct {
 	slaveReceive, slaveStatus, slaveSend, masterReceive, masterStatus, masterSend chan Message
 	LocalIP string
@@ -55,7 +56,11 @@ func sorter(nw *Network, commSend chan<- communication.CommData, commReceive <-c
 			}
 			nw.masterReceive <- convMsg
 		case status <- commStatus:
-			//TODO: Legg til et felt til i communication som skiller mellom master og slave
+			if status.ID[0] == 'S'{
+				nw.slaveStatus <- status
+			} else{
+				nw.masterStatus <- status
+			}
 		}	
 	}
 }

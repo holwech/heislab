@@ -57,13 +57,15 @@ func msgSorter(commReceive <-chan CommData, receivedMsg chan<- CommData, commSen
 			// If message is a receive-confirmation
 			fmt.Println("Reached sorter")
 			if message.DataType == "Received"{
-				response := ConnData{
-					SenderIP: message.SenderIP,
-					MsgID: message.MsgID,
-					SendTime: time.Now(),
-					Status: "Received",
+				if message.Sender == GetLocalIP(){
+					response := ConnData{
+						SenderIP: message.SenderIP,
+						MsgID: message.MsgID,
+						SendTime: time.Now(),
+						Status: "Received",
+					}
+					commSentStatus <- response
 				}
-				commSentStatus <- response
 				// If message is a normal message 
 			}else{
 				response := CommData{
