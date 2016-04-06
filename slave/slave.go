@@ -2,7 +2,7 @@ package slave
 
 import (
 	"github.com/holwech/heislab/driver"
-	"github.com/holwech/heislab/communication"
+	"github.com/holwech/heislab/network"
 	"fmt"
 )
 
@@ -24,6 +24,21 @@ func InitElevator() (<-chan driver.InnerOrder,<-chan driver.OuterOrder, <-chan i
 	}
 
 	return innerChan,outerChan,floorChan
+}
+
+func InitNetwork() {
+	slaveSend := make(chan Message)
+	masterSend := make(chan Message)
+	nw := new(Network)
+	nw.Init(slaveSend, masterSend)
+	Run(nw)
+	slaveReceive, slaveStatus := nw.SChannels()
+	masterReceive, masterStatus := nw.MChannels()
+	go sender(slaveSend)
+	time.Sleep(time.Second)
+	go receiver(slaveReceive, slaveStatus, masterReceive, masterStatus)
+	time.Sleep(time.Second * 60)
+
 }
 
 func main(){
