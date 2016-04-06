@@ -2,6 +2,9 @@ package network
 
 import (
 	"github.com/holwech/heislab/communication"
+	"github.com/fatih/color"
+	"github.com/satori/go.uuid"
+	"errors"
 )
 
 type Message struct {
@@ -13,7 +16,31 @@ type Network struct {
 	LocalIP string
 }
 
-func (nw *Network)Init(slaveSend chan Message, masterSend chan Message) {
+func PrintMessage (message *Message) {
+	color.White("Sender: %s\n", message.Sender)
+	color.White("Receiver: %s\n", message.Receiver)
+	color.White("ID: %s\n", message.ID)
+	color.White("Response: %s\n", message.Response)
+	color.White("Content: %v\n", message.Content)
+}
+
+func CreateID(senderType string) (string, error) {
+	id := uuid.NewV4()
+	if (senderType != "Master") && (senderType != "Slave") {
+		return id.String(), errors.New("Sender type has to be of value Master or Slave")
+	}
+	if senderType == "Master" {
+		return  "M" + id.String(), nil
+	} else{
+		return  "S" + id.String(), nil
+	}
+}
+
+func LocalIP() string {
+	return communication.GetLocalIP()
+}
+
+func (nw *Network) Init(slaveSend chan Message, masterSend chan Message) {
 	nw.slaveReceive = make(chan Message)
 	nw.slaveStatus = make(chan Message)
 	nw.slaveSend = slaveSend
@@ -33,8 +60,8 @@ func (nw *Network) MChannels() (<- chan Message, <- chan Message){
 
 
 func Run(nw *Network) {
-	commSend := make(chan CommData)
-	commReceive, commStatus := communication.Run()
+	commSend := make(chan communication.CommData)
+	commReceive, commStatus := communication.Run(commSend)
 	nw.LocalIP = communication.GetLocalIP()
 	go sorter(nw, commSend, commReceive, commStatus)
 }
@@ -43,19 +70,19 @@ func Run(nw *Network) {
 func sorter(nw *Network, commSend chan<- communication.CommData, commReceive <-chan communication.CommData, commStatus <-chan communication.ConnData) {
 	for{
 		select{
-		case message <- nw.slaveSend:
-			commMsg := communication.ResolveMsg(message.Receiver, message.ID, message.Response, message.Content)
-			commSend <- commMsg:
-		case message <- nw.masterSend:
+		case message := <- nw.slaveSend:
 			commMsg := communication.ResolveMsg(message.Receiver, message.ID, message.Response, message.Content)
 			commSend <- commMsg
-		case message <- commReceive:
+		case message := <- nw.masterSend:
+			commMsg := communication.ResolveMsg(message.Receiver, message.ID, message.Response, message.Content)
+			commSend <- commMsg
+		case message := <- commReceive:
 			convMsg := commToMsg(&message)
 			if convMsg.Receiver == nw.LocalIP {
 				nw.slaveReceive <- convMsg
 			}
 			nw.masterReceive <- convMsg
-		case status <- commStatus:
+		case status := <- commStatus:
 			if status.ID[0] == 'S'{
 				nw.slaveStatus <- status
 			} else{
