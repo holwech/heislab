@@ -61,7 +61,7 @@ func sorter(nw *Network, commSend chan<- communication.CommData, commReceive <-c
 			} else{
 				nw.masterStatus <- status
 			}
-		}	
+		}
 	}
 }
 

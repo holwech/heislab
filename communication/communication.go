@@ -6,6 +6,7 @@ import (
 	"os"
 	"encoding/json"
 	"time"
+	"github.com/fatih/color"
 )
 
 const com_id = "2323" //Identifier for all elevators on the system
@@ -29,12 +30,10 @@ type ConnData struct {
 }
 
 func printError(errMsg string, err error) {
-	fmt.Println(errMsg)
-	fmt.Println(err)
+	color.Blue(errMsg + "\n")
+	color.Blue(err.Error() + "\n")
 	fmt.Println()
 }
-
-
 
 func Run(sendCh chan CommData) (<- chan CommData, <- chan ConnData) {
 	commReceive := make(chan CommData)
@@ -55,9 +54,8 @@ func msgSorter(commReceive <-chan CommData, receivedMsg chan<- CommData, commSen
 			// When messages are received
 		case message := <- commReceive:
 			// If message is a receive-confirmation
-			fmt.Println("Reached sorter")
 			if message.DataType == "Received"{
-				if message.Sender == GetLocalIP(){
+				if message.SenderIP == GetLocalIP(){
 					response := ConnData{
 						SenderIP: message.SenderIP,
 						MsgID: message.MsgID,
@@ -76,7 +74,6 @@ func msgSorter(commReceive <-chan CommData, receivedMsg chan<- CommData, commSen
 					DataType: "Received",
 					DataValue: time.Now(),
 				}
-				fmt.Println("Sending response")
 				receivedMsg <- message
 				commSend <- response
 			}
@@ -102,11 +99,11 @@ func checkTimeout(commSentStatus chan ConnData, connStatus chan ConnData) {
 		case metadata := <- commSentStatus:
 			if metadata.Status == "Received" {
 				delete(messageLog, metadata.MsgID)
-				fmt.Println("COMM: Message received, sending verification. ID:", metadata.MsgID)
+				color.Blue("COMM: Message received, sending verification. ID: %s\n", metadata.MsgID)
 				connStatus <- metadata
 			}else{
 				messageLog[metadata.MsgID] = metadata
-				fmt.Println("COMM: Metadata stored")
+				color.Blue("COMM: Metadata stored\n")
 			}
 		case <- ticker:
 			currentTime := time.Now()
@@ -126,7 +123,7 @@ func checkTimeout(commSentStatus chan ConnData, connStatus chan ConnData) {
 
 
 func broadcast(sendCh chan CommData, commSentStatus chan ConnData) {
-	fmt.Println("COMM: Broadcasting message to: 255.255.255.255" + port)
+	color.Blue("COMM: Broadcasting message to: 255.255.255.255%s\n", port)
 	broadcastAddress, err := net.ResolveUDPAddr("udp", "255.255.255.255" + port)
 	if err != nil {
 		printError("=== ERROR: ResolvingUDPAddr in Broadcast failed.", err)
@@ -144,7 +141,7 @@ func broadcast(sendCh chan CommData, commSentStatus chan ConnData) {
 			printError("=== ERROR: Convertion of json failed in broadcast", err)
 		}
 		connection.Write(convMsg)
-		fmt.Println("COMM: Message sent successfully! \n")
+		color.Blue("COMM: Message sent successfully!\n")
 	}
 }
 
@@ -153,8 +150,7 @@ func listen(commReceive chan CommData) {
 	if err != nil {
 		printError("=== ERROR: ResolvingUDPAddr in Listen failed.", err)
 	}
-	fmt.Print("COMM: Listening to port ")
-	fmt.Println(localAddress.Port)
+	color.Blue("COMM: Listening to port %d\n", localAddress.Port)
 	connection, err := net.ListenUDP("udp", localAddress)
 	if err != nil {
 		printError("=== ERROR: ListenUDP in Listen failed.", err )
@@ -173,34 +169,34 @@ func listen(commReceive chan CommData) {
 			printError("=== ERROR: Unmarshal failed in listen", err)
 		}
 		if (message.Identifier == com_id) {
-			fmt.Print("COMM: Message received from: ")
-			fmt.Println(message.SenderIP)
+			color.Blue("COMM: Message received from: ")
+			color.Blue("%s\n", message.SenderIP)
 			commReceive <- message
 		} else {
-			fmt.Println("COMM: Data received")
-			fmt.Println("COMM: Identifier does not match")
-			fmt.Println("COMM: " + string(buffer) + "\n")
+			color.Blue("COMM: Data received\n")
+			color.Blue("COMM: Identifier does not match\n")
+			color.Blue("COMM: %s\n\n", string(buffer))
 		}
 	}
 }
 
 func PrintMessage(data CommData) {
-	fmt.Println("=== Data received ===")
-	fmt.Println("Identifier: ", data.Identifier)
-	fmt.Println("SenderIP: ", data.SenderIP)
-	fmt.Println("ReceiverIP:", data.ReceiverIP)
-	fmt.Println("Message ID:", data.MsgID)
-	fmt.Println("= Data =")
-	fmt.Println("Data type:", data.DataType)
-	fmt.Println("DataValue:", data.DataValue)
+	color.Blue("=== Data received ===\n")
+	color.Blue("Identifier: %s\n", data.Identifier)
+	color.Blue("SenderIP: %s\n", data.SenderIP)
+	color.Blue("ReceiverIP: %s\n", data.ReceiverIP)
+	color.Blue("Message ID: %s\n", data.MsgID)
+	color.Blue("= Data = \n")
+	color.Blue("Data type: %s\n", data.DataType)
+	color.Blue("DataValue: %s\n", data.DataValue)
 }
 
 func PrintConnData(data ConnData) {
-	fmt.Println("=== Connection data ===")
-	fmt.Println("SenderIP:", data.SenderIP)
-	fmt.Println("Message ID:", data.MsgID)
-	fmt.Println("Time:", data.SendTime)
-	fmt.Println("Status:", data.Status)
+	color.Blue("=== Connection data ===\n")
+	color.Blue("SenderIP: %s\n", data.SenderIP)
+	color.Blue("Message ID: %s\n", data.MsgID)
+	color.Blue("Time: %s\n", data.SendTime)
+	color.Blue("Status: %s\n", data.Status)
 }
 
 func GetLocalIP() (string) {
