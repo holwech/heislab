@@ -10,7 +10,7 @@ import (
 
 const com_id = "2323" //Identifier for all elevators on the system
 const port = ":3000"
-const broadcast_addr = "localhost"
+const broadcast_addr = "129.241.187.146"
 
 // DataValue should ONLY be int og string
 type CommData struct {
@@ -51,11 +51,13 @@ func Run(sendCh chan CommData) (<- chan CommData, <- chan ConnData) {
 func msgSorter(commReceive <-chan CommData, receivedMsg chan<- CommData, commSentStatus chan<- ConnData, commSend chan<- CommData, sendCh <-chan CommData) {
 	for{
 		select{
-			// When messages are received
+		// When messages are received
 		case message := <- commReceive:
-			// If message is a receive-confirmation
+			// If message is a receive-confirmation, push to status-channel
 			if message.DataType == "Received"{
-				if message.SenderIP == GetLocalIP(){
+				fmt.Printf("SenderIP: %s, LocalIP: %s", message.SenderIP, GetLocalIP())
+				// Filters out status-messages that are not relevant for receiver
+				if message.SenderIP == GetLocalIP() {
 					response := ConnData{
 						SenderIP: message.SenderIP,
 						MsgID: message.MsgID,
@@ -64,12 +66,12 @@ func msgSorter(commReceive <-chan CommData, receivedMsg chan<- CommData, commSen
 					}
 					commSentStatus <- response
 				}
-				// If message is a normal message 
+			// If message is a normal message, then send verification 
 			}else{
 				response := CommData{
 					Identifier: com_id,
-					SenderIP: GetLocalIP(),
-					ReceiverIP: message.SenderIP,
+					SenderIP: message.SenderIP, 
+					ReceiverIP: GetLocalIP(),
 					MsgID: message.MsgID,
 					DataType: "Received",
 					DataValue: time.Now(),
@@ -77,11 +79,11 @@ func msgSorter(commReceive <-chan CommData, receivedMsg chan<- CommData, commSen
 				receivedMsg <- message
 				commSend <- response
 			}
-			// When messages are sent
+		// When messages are sent, set time-stamp
 		case message := <- sendCh:
 			commSend <- message
 			timeSent := ConnData{
-				SenderIP: GetLocalIP(),
+				SenderIP: message.SenderIP,
 				MsgID: message.MsgID,
 				SendTime: time.Now(),
 				Status: "Sent",
@@ -109,7 +111,7 @@ func checkTimeout(commSentStatus chan ConnData, connStatus chan ConnData) {
 			currentTime := time.Now()
 			for msgID, metadata := range messageLog {
 				timeDiff := currentTime.Sub(metadata.SendTime)
-				if timeDiff.Seconds() > 0.50 {
+				if timeDiff.Seconds() > 5 {
 					sendingFailed := metadata
 					sendingFailed.Status = "Failed"
 					delete(messageLog, msgID)
@@ -168,9 +170,9 @@ func listen(commReceive chan CommData) {
 		if err != nil {
 			printError("=== ERROR: Unmarshal failed in listen", err)
 		}
+		//Filters out all messages not relevant for the system
 		if (message.Identifier == com_id) {
-			fmt.Printf("COMM: Message received from: ")
-			fmt.Printf("%s\n", message.SenderIP)
+			fmt.Printf("COMM: Message received from: %s\n", message.SenderIP)
 			commReceive <- message
 		} else {
 			fmt.Printf("COMM: Data received\n")
