@@ -10,6 +10,7 @@ import (
 
 const com_id = "2323" //Identifier for all elevators on the system
 const port = ":3000"
+const broadcast_addr = "localhost"
 
 // DataValue should ONLY be int og string
 type CommData struct {
@@ -122,8 +123,8 @@ func checkTimeout(commSentStatus chan ConnData, connStatus chan ConnData) {
 
 
 func broadcast(sendCh chan CommData, commSentStatus chan ConnData) {
-	fmt.Printf("COMM: Broadcasting message to: 255.255.255.255%s\n", port)
-	broadcastAddress, err := net.ResolveUDPAddr("udp", "255.255.255.255" + port)
+	fmt.Printf("COMM: Broadcasting message to: %s%s\n", broadcast_addr, port)
+	broadcastAddress, err := net.ResolveUDPAddr("udp", broadcast_addr + port)
 	if err != nil {
 		printError("=== ERROR: ResolvingUDPAddr in Broadcast failed.", err)
 	}
