@@ -2,13 +2,14 @@ package network
 
 import (
 	"github.com/holwech/heislab/communication"
-	"github.com/fatih/color"
 	"github.com/satori/go.uuid"
 	"errors"
+	"fmt"
 )
 
 type Message struct {
-	Sender, Receiver, ID, Response, Content string
+	Sender, Receiver, ID, Response string
+	Content interface{}
 }
 
 type Network struct {
@@ -17,11 +18,11 @@ type Network struct {
 }
 
 func PrintMessage (message *Message) {
-	color.White("Sender: %s\n", message.Sender)
-	color.White("Receiver: %s\n", message.Receiver)
-	color.White("ID: %s\n", message.ID)
-	color.White("Response: %s\n", message.Response)
-	color.White("Content: %v\n", message.Content)
+	fmt.Printf("NETW: Sender: %s\n", message.Sender)
+	fmt.Printf("NETW: Receiver: %s\n", message.Receiver)
+	fmt.Printf("NETW: ID: %s\n", message.ID)
+	fmt.Printf("NETW: Response: %s\n", message.Response)
+	fmt.Printf("NETW: Content: %v\n", message.Content)
 }
 
 func CreateID(senderType string) (string, error) {
@@ -71,10 +72,10 @@ func sorter(nw *Network, commSend chan<- communication.CommData, commReceive <-c
 	for{
 		select{
 		case message := <- nw.slaveSend:
-			commMsg := communication.ResolveMsg(message.Receiver, message.ID, message.Response, message.Content)
+			commMsg := *communication.ResolveMsg(message.Receiver, message.ID, message.Response, message.Content)
 			commSend <- commMsg
 		case message := <- nw.masterSend:
-			commMsg := communication.ResolveMsg(message.Receiver, message.ID, message.Response, message.Content)
+			commMsg := *communication.ResolveMsg(message.Receiver, message.ID, message.Response, message.Content)
 			commSend <- commMsg
 		case message := <- commReceive:
 			convMsg := commToMsg(&message)
@@ -83,10 +84,11 @@ func sorter(nw *Network, commSend chan<- communication.CommData, commReceive <-c
 			}
 			nw.masterReceive <- convMsg
 		case status := <- commStatus:
-			if status.ID[0] == 'S'{
-				nw.slaveStatus <- status
+			convStatus := connToMsg(&status)
+			if convStatus.ID[0] == 'S'{
+				nw.slaveStatus <- convStatus
 			} else{
-				nw.masterStatus <- status
+				nw.masterStatus <- convStatus
 			}
 		}
 	}

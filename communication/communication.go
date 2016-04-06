@@ -6,7 +6,6 @@ import (
 	"os"
 	"encoding/json"
 	"time"
-	"github.com/fatih/color"
 )
 
 const com_id = "2323" //Identifier for all elevators on the system
@@ -30,8 +29,8 @@ type ConnData struct {
 }
 
 func printError(errMsg string, err error) {
-	color.Blue(errMsg + "\n")
-	color.Blue(err.Error() + "\n")
+	fmt.Printf(errMsg + "\n")
+	fmt.Printf(err.Error() + "\n")
 	fmt.Println()
 }
 
@@ -99,11 +98,11 @@ func checkTimeout(commSentStatus chan ConnData, connStatus chan ConnData) {
 		case metadata := <- commSentStatus:
 			if metadata.Status == "Received" {
 				delete(messageLog, metadata.MsgID)
-				color.Blue("COMM: Message received, sending verification. ID: %s\n", metadata.MsgID)
+				fmt.Printf("COMM: Message received, sending verification. ID: %s\n", metadata.MsgID)
 				connStatus <- metadata
 			}else{
 				messageLog[metadata.MsgID] = metadata
-				color.Blue("COMM: Metadata stored\n")
+				fmt.Printf("COMM: Metadata stored\n")
 			}
 		case <- ticker:
 			currentTime := time.Now()
@@ -123,7 +122,7 @@ func checkTimeout(commSentStatus chan ConnData, connStatus chan ConnData) {
 
 
 func broadcast(sendCh chan CommData, commSentStatus chan ConnData) {
-	color.Blue("COMM: Broadcasting message to: 255.255.255.255%s\n", port)
+	fmt.Printf("COMM: Broadcasting message to: 255.255.255.255%s\n", port)
 	broadcastAddress, err := net.ResolveUDPAddr("udp", "255.255.255.255" + port)
 	if err != nil {
 		printError("=== ERROR: ResolvingUDPAddr in Broadcast failed.", err)
@@ -141,7 +140,7 @@ func broadcast(sendCh chan CommData, commSentStatus chan ConnData) {
 			printError("=== ERROR: Convertion of json failed in broadcast", err)
 		}
 		connection.Write(convMsg)
-		color.Blue("COMM: Message sent successfully!\n")
+		fmt.Printf("COMM: Message sent successfully!\n")
 	}
 }
 
@@ -150,7 +149,7 @@ func listen(commReceive chan CommData) {
 	if err != nil {
 		printError("=== ERROR: ResolvingUDPAddr in Listen failed.", err)
 	}
-	color.Blue("COMM: Listening to port %d\n", localAddress.Port)
+	fmt.Printf("COMM: Listening to port %d\n", localAddress.Port)
 	connection, err := net.ListenUDP("udp", localAddress)
 	if err != nil {
 		printError("=== ERROR: ListenUDP in Listen failed.", err )
@@ -169,34 +168,34 @@ func listen(commReceive chan CommData) {
 			printError("=== ERROR: Unmarshal failed in listen", err)
 		}
 		if (message.Identifier == com_id) {
-			color.Blue("COMM: Message received from: ")
-			color.Blue("%s\n", message.SenderIP)
+			fmt.Printf("COMM: Message received from: ")
+			fmt.Printf("%s\n", message.SenderIP)
 			commReceive <- message
 		} else {
-			color.Blue("COMM: Data received\n")
-			color.Blue("COMM: Identifier does not match\n")
-			color.Blue("COMM: %s\n\n", string(buffer))
+			fmt.Printf("COMM: Data received\n")
+			fmt.Printf("COMM: Identifier does not match\n")
+			fmt.Printf("COMM: %s\n\n", string(buffer))
 		}
 	}
 }
 
 func PrintMessage(data CommData) {
-	color.Blue("=== Data received ===\n")
-	color.Blue("Identifier: %s\n", data.Identifier)
-	color.Blue("SenderIP: %s\n", data.SenderIP)
-	color.Blue("ReceiverIP: %s\n", data.ReceiverIP)
-	color.Blue("Message ID: %s\n", data.MsgID)
-	color.Blue("= Data = \n")
-	color.Blue("Data type: %s\n", data.DataType)
-	color.Blue("DataValue: %s\n", data.DataValue)
+	fmt.Printf("=== Data received ===\n")
+	fmt.Printf("Identifier: %s\n", data.Identifier)
+	fmt.Printf("SenderIP: %s\n", data.SenderIP)
+	fmt.Printf("ReceiverIP: %s\n", data.ReceiverIP)
+	fmt.Printf("Message ID: %s\n", data.MsgID)
+	fmt.Printf("= Data = \n")
+	fmt.Printf("Data type: %s\n", data.DataType)
+	fmt.Printf("DataValue: %s\n", data.DataValue)
 }
 
 func PrintConnData(data ConnData) {
-	color.Blue("=== Connection data ===\n")
-	color.Blue("SenderIP: %s\n", data.SenderIP)
-	color.Blue("Message ID: %s\n", data.MsgID)
-	color.Blue("Time: %s\n", data.SendTime)
-	color.Blue("Status: %s\n", data.Status)
+	fmt.Printf("=== Connection data ===\n")
+	fmt.Printf("SenderIP: %s\n", data.SenderIP)
+	fmt.Printf("Message ID: %s\n", data.MsgID)
+	fmt.Printf("Time: %s\n", data.SendTime)
+	fmt.Printf("Status: %s\n", data.Status)
 }
 
 func GetLocalIP() (string) {
