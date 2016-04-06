@@ -10,11 +10,7 @@ import (
 
 const com_id = "2323" //Identifier for all elevators on the system
 const port = ":3000"
-<<<<<<< HEAD
-const broadcast_addr = "10.22.71.125"
-=======
-const broadcast_addr = "129.241.187.146"
->>>>>>> bf0478928f547bebc3b29bb3b7a1ec9625db5c40
+const broadcast_addr = "localhost"
 
 // DataValue should ONLY be int og string
 type CommData struct {
@@ -59,7 +55,6 @@ func msgSorter(commReceive <-chan CommData, receivedMsg chan<- CommData, commSen
 		case message := <- commReceive:
 			// If message is a receive-confirmation, push to status-channel
 			if message.DataType == "Received"{
-				fmt.Printf("SenderIP: %s, LocalIP: %s", message.SenderIP, GetLocalIP())
 				// Filters out status-messages that are not relevant for receiver
 				if message.SenderIP == GetLocalIP() {
 					response := ConnData{
