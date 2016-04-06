@@ -20,6 +20,20 @@ func TestSend(t *testing.T) {
 	time.Sleep(time.Second * 60)
 }
 
+func TestListen(t *testing.T) {
+	slaveSend := make(chan Message)
+	masterSend := make(chan Message)
+	nw := new(Network)
+	nw.Init(slaveSend, masterSend)
+	Run(nw)
+	slaveReceive, slaveStatus := nw.SChannels()
+	masterReceive, masterStatus := nw.MChannels()
+	time.Sleep(time.Second)
+	go receiver(slaveReceive, slaveStatus, masterReceive, masterStatus)
+	time.Sleep(time.Second * 60)
+}
+
+
 func sender(slaveSend chan Message) {
 	count := 0
 	for{
