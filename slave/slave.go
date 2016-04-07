@@ -2,7 +2,8 @@ package main
 
 import (
 	"github.com/holwech/heislab/driver"
-	"github.com/holwech/heislab/communication"
+	"github.com/holwech/heislab/network"
+	"github.com/holwech/heislab/cl"
 	"fmt"
 )
 
@@ -26,10 +27,66 @@ func InitElevator() (<-chan driver.InnerOrder,<-chan driver.OuterOrder, <-chan i
 	return innerChan,outerChan,floorChan
 }
 
+func InitNetwork(slaveSend chan <- Message, masterSend chan <- Message) *network.Network {
+	nw := new(network.Network)
+	nw.Init(slaveSend, masterSend)
+	network.Run(nw)
+	return nw
+}
+
+func Run() {
+	innerChan, outerChan, floorChan := InitElevator()
+	slaveSend = make(chan network.Message)
+	masterSend = make(chan network.Message)
+	nw := InitNetwork(slaveSend, masterSend)
+	slaveReceive, slaveStatus := nw.SChannels()
+	InitMaster(nw, masterSend)
+
+	for {
+		select{
+		case innerOrder := <- innerChan:
+			message := network.Message{
+				Sender: network.LocalIP(),
+				Receiver: ?????,
+				ID: network.CreateID("Slave"),
+				Response: cl.InnerOrder,
+				Content: innerOrder,
+			}
+			slaveSend <- message
+		case outerOrder := <- outerChan:
+			message := network.Message{
+				Sender: network.LocalIP(),
+				Receiver: ?????,
+				ID: network.CreateID("Slave"),
+				Response: cl.OuterOrder,
+				Content: outerOrder,
+			}
+			slaveSend <- message
+		case newFloor := <- floorChan:
+			message := network.Message{
+				Sender: network.LocalIP(),
+				Receiver: ?????,
+				ID: network.CreateID("Slave"),
+				Response: cl.Floor,
+				Content: newFloor,
+			}
+			slaveSend <- message
+		case message := <- slaveReceive:
+			select message.Response{
+			case "MOVEUP":
+				driver.SetMotorDirection(1)
+			case "MOVEDOWN":
+				driver.SetMotorDirection(-1)
+			case "STOP":
+				driver.SetMotorDirectioin(0)
+			}
+		case status := <- slaveStatus:
+			?????
+	}
+}
+
 func main(){
 	innerChan, outerChan, floorChan := InitElevator()
-	//messageChan, statusChan := InitNetwork()
-	//sendChan := network get send chan
 
 
 	for{
