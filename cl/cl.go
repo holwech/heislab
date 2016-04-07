@@ -3,3 +3,6 @@
 var InnerOrder string = "INNER"
 var OuterOrder string = "OUTER"
 var Floor string = "FLOOR"
+var Startup string = "STARTUP"
+var Timeout string = "TIMEOUT"
+var Stop string = "STOP"
