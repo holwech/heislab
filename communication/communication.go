@@ -54,14 +54,14 @@ func msgSorter(commReceive <-chan CommData, receivedMsg chan<- CommData, commSen
 		// When messages are received
 		case message := <- commReceive:
 			// If message is a receive-confirmation, push to status-channel
-			if message.DataType == "Received"{
+			if message.DataType == "OK"{
 				// Filters out status-messages that are not relevant for receiver
 				if message.SenderIP == GetLocalIP() {
 					response := ConnData{
 						SenderIP: message.SenderIP,
 						MsgID: message.MsgID,
 						SendTime: time.Now(),
-						Status: "Received",
+						Status: "OK",
 					}
 					commSentStatus <- response
 				}
@@ -72,7 +72,7 @@ func msgSorter(commReceive <-chan CommData, receivedMsg chan<- CommData, commSen
 					SenderIP: message.SenderIP, 
 					ReceiverIP: GetLocalIP(),
 					MsgID: message.MsgID,
-					DataType: "Received",
+					DataType: "OK",
 					DataValue: time.Now(),
 				}
 				receivedMsg <- message
@@ -98,7 +98,7 @@ func checkTimeout(commSentStatus chan ConnData, connStatus chan ConnData) {
 	for{
 		select{
 		case metadata := <- commSentStatus:
-			if metadata.Status == "Received" {
+			if metadata.Status == "OK" {
 				delete(messageLog, metadata.MsgID)
 				fmt.Printf("COMM: Message received, sending verification. ID: %s\n", metadata.MsgID)
 				connStatus <- metadata
