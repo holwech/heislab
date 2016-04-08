@@ -10,6 +10,7 @@ import (
 //Listen to inputs from slaves and send actions back
 	//When do we send new orders to elevators?
 	//Does activation message come from slave?
+	//Will the behaviour and order list be the same on all masters running?
 func Run(nw network.Network, sendMaster chan network.Message){
 	messageChan, statusChan := nw.MChannels()
 	sys := orders.NewSystem()
@@ -34,9 +35,8 @@ func Run(nw network.Network, sendMaster chan network.Message){
 			sys.RemoveElevator(connStatus.Sender)
 		}
 	default:
-		if isActive{
 			cmd, hasCommand := sys.Command()
-			if hasCommand{
+			if hasCommand && isActive{
 				sendMaster <- cmd
 			}
 		}

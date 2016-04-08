@@ -119,30 +119,6 @@ func (sys *System) UpdateFloor(elevatorIP string, floor int){
 //Prevent multiple elevators from going for the same order. 
 //Let each elevator have a list of orders to take?
 
-func (sys *System) Command() (network.Message){
-	var command network.Message;
-	
-
-	//Remove finished orders
-	for floor := 0; floor < 4; floor++{
-		for elev := range sys.Elevators{
-			if elev.Orders[floor] == true && elev.Floor == floor{
-				sys.RemoveInnerOrder(elev,floor)
-				command.Receiver = elev
-				command.Response = cl.Stop
-				return
-			}
-		} 
-	}
-
-
-	//Handle current orders
-	for 
-
-}
-
-
-
 func (sys *System) Command() (network.Message,bool){
 	var command network.Message;
 	//First stop the elevators that have reached their ordered floor - one at a time
@@ -179,17 +155,20 @@ func (sys *System) Command() (network.Message,bool){
 	//Finally send elevators to their orders
 	//Find a way to make sure to not send elevators that have just stopped with door open. Maybe include a state for door open
 	//and let the elevators report when they are ready?
-	for elev := range sys.Elevators{
+	for elev := range sys.Elevators{ // if elev.behaviour != door open?
 		for floor := 0; floor < 4; floor++{
 			if elev.Orders[floor]{
 				command.Receiver = elev
 				command.Response = cl.Move 
 				if floor < elev.Floor{
 					command.Content = cl.Down
+					sys.Elevators[elev].Direction = -1
 				}
 				else{
 					command.Content = cl.Up
+					sys.Elevators[elev].Direction = 1
 				}
+					sys.Elevators[elev].CurrentBehaviour = Moving
 				return command,true
 			}
 		}
