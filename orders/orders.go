@@ -36,13 +36,13 @@ type ElevatorState struct{
 	Floor int
 	Direction int
 	CurrentBehaviour Behaviour
-	InnerOrders [4] bool 
+	Orders [4] bool
 }
 
 type System struct{
 	Elevators map[string]ElevatorState
-	OuterOrdersUp [4]bool
-	OuterOrdersDown [4]bool
+	UnhandledOrdersUp [4]bool
+	UnhandledOrdersDown [4]bool
 }
 
 func NewSystem() *System{
@@ -60,6 +60,7 @@ func (sys *System) AddElevator(elevatorIP string) bool{
 	return !exists
 }
 
+//Should we move an elevators orders back to unhandled?
 func (sys *System) RemoveElevator(elevatorIP string) bool{
 	_, exists := sys.Elevators[elevatorIP]
 	if exists{
@@ -73,29 +74,35 @@ func (sys *System) AddInnerOrder(elevatorIP string, floor int) bool{
 	elevator, exists := sys.Elevators[elevatorIP];
 
 	if exists{
-		if elevator.InnerOrders[floor]{
+		if elevator.Orders[floor]{
 			alreadyAdded = true
 		}else{
-			elevator.InnerOrders[floor] = true	
+			elevator.Orders[floor] = true	
 			sys.Elevators[elevatorIP] = elevator
 		}
 	}
 	return exists && !alreadyAdded
 }
 
+func (sys *System) RemoveInnerOrder(elevatorIP string, floor int){
+	elevator := sys.Elevators[elevatorIP];
+	elevator.Orders[floor] = false
+	sys.Elevators[elevatorIP] = elevator
+}
+
 func (sys *System) AddOuterOrder(floor, direction int) bool{
 	alreadyAdded := false
 	if direction == -1{
-		if sys.OuterOrdersDown[floor]{
+		if sys.UnhandledOrdersDown[floor]{
 			alreadyAdded = true
 		}else{
-			sys.OuterOrdersDown[floor] = true
+			sys.UnhandledOrdersDown[floor] = true
 		}
 	}else if direction == 1{
-		if sys.OuterOrdersUp[floor]{
+		if sys.UnhandledOrdersUp[floor]{
 			alreadyAdded = true
 		}else{
-			sys.OuterOrdersUp[floor] = true
+			sys.UnhandledOrdersUp[floor] = true
 		}
 	}
 	return !alreadyAdded
@@ -108,19 +115,86 @@ func (sys *System) UpdateFloor(elevatorIP string, floor int){
 }
 
 
-	
+//Remove orders when they are finished
+//Prevent multiple elevators from going for the same order. 
+//Let each elevator have a list of orders to take?
+
 func (sys *System) Command() (network.Message){
 	var command network.Message;
 	
-	//Check if elevator is on same floor as an order
-	for elev := range sys.Elevators{
-		for floor := 0; floor < 4; floor++{
-			if elev.InnerOrders[floor] == true && elev.Floor == floor{
+
+	//Remove finished orders
+	for floor := 0; floor < 4; floor++{
+		for elev := range sys.Elevators{
+			if elev.Orders[floor] == true && elev.Floor == floor{
+				sys.RemoveInnerOrder(elev,floor)
+				command.Receiver = elev
 				command.Response = cl.Stop
+				return
+			}
+		} 
+	}
+
+
+	//Handle current orders
+	for 
+
+}
+
+
+
+func (sys *System) Command() (network.Message,bool){
+	var command network.Message;
+	//First stop the elevators that have reached their ordered floor - one at a time
+	//Check if an elevator has more orders, and set state accordingly -- tbd
+	for elev := range sys.Elevators{
+		if elev.Orders[elev.Floor] == true{
+			sys.RemoveInnerOrder(elev,elev.Floor)
+			command.Receiver = elev	
+			command.Response = cl.Stop
+			return command,true
+		}
+	}
+	//Then dispatch unhandled orders to the connected elevators - all?
+	for floor := 0; floor < 4; floor++{
+		if sys.UnhandledOrdersUp[floor]{
+			for elev := range sys.Elevators{
+				//Test if this covers stopped elevators that are supposed to go up afterwards
+				if elev.Behaviour == Idle || elev.Direction == 1{
+					sys.AddInnerOrder(elev,floor)
+					sys.UnhandledOrdersUp[floor] = false
+				}
+			}
+		}
+		if sys.UnhandledOrdersDown[floor]{
+			for elev := range sys.Elevators{
+				//Test if this covers stopped elevators that are supposed to go up afterwards
+				if elev.Behaviour == Idle || elev.Direction == -1{
+					sys.AddInnerOrder(elev,floor)
+					sys.UnhandledOrdersDown[floor] = false
+				}
 			}
 		}
 	}
-
+	//Finally send elevators to their orders
+	//Find a way to make sure to not send elevators that have just stopped with door open. Maybe include a state for door open
+	//and let the elevators report when they are ready?
+	for elev := range sys.Elevators{
+		for floor := 0; floor < 4; floor++{
+			if elev.Orders[floor]{
+				command.Receiver = elev
+				command.Response = cl.Move 
+				if floor < elev.Floor{
+					command.Content = cl.Down
+				}
+				else{
+					command.Content = cl.Up
+				}
+				return command,true
+			}
+		}
+	}
+	return command,false
 }
 
 

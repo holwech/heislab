@@ -4,14 +4,12 @@ import (
 	"github.com/holwech/heislab/network"
 	"github.com/holwech/heislab/cl"
 	"github.com/holwech/heislab/orders"	
-	"fmt"
 )
 
 
 //Listen to inputs from slaves and send actions back
 	//When do we send new orders to elevators?
 	//Does activation message come from slave?
-
 func Run(nw network.Network, sendMaster chan network.Message){
 	messageChan, statusChan := nw.MChannels()
 	sys := orders.NewSystem()
@@ -37,9 +35,9 @@ func Run(nw network.Network, sendMaster chan network.Message){
 		}
 	default:
 		if isActive{
-			command, hasCommand := sys.GenerateSlaveCommand()
+			cmd, hasCommand := sys.Command()
 			if hasCommand{
-				sendMaster <- command
+				sendMaster <- cmd
 			}
 		}
 	}
