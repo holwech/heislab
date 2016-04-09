@@ -35,7 +35,6 @@ func Run(nw *network.Network, sendMaster chan network.Message){
 				sys.AddOuterOrder(floor,direction)
 				event = true
 			case cl.Floor:		
-				fmt.Println("yoloooo")
 				floor := int(message.Content.(float64))
 				cmd, hasCommand := sys.FloorAction(message.Sender,floor)
 				cmd.Sender = network.LocalIP()
@@ -49,7 +48,10 @@ func Run(nw *network.Network, sendMaster chan network.Message){
 				if isActive{
 					sendMaster <- ping
 				}
-				sys.AddElevator(message.Sender)			
+				sys.AddElevator(message.Sender)
+			case cl.DoorClosed:
+				sys.DoorClosedEvent(message.Sender)
+				event = true
 			case cl.SetMaster:
 				isActive = true
 			}
@@ -58,7 +60,6 @@ func Run(nw *network.Network, sendMaster chan network.Message){
 				cmd.Sender = network.LocalIP()
 				cmd.ID = network.CreateID(cl.Master)
 				if hasCommand && isActive{
-					fmt.Println("MASTE34R")
 					sendMaster <- cmd
 				}
 			}

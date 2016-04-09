@@ -138,7 +138,7 @@ func (sys *System) FloorAction(elevatorIP string, floor int) (network.Message,bo
 			sys.SetBehaviour(elevatorIP, Idle)
 			for floor := 0; floor < 4; floor++{
 				if sys.Elevators[elevatorIP].Orders[floor]{
-					sys.SetBehaviour(elevatorIP,Moving)
+					sys.SetBehaviour(elevatorIP,Stopped)
 				}
 			}
 			return command,true
@@ -157,6 +157,17 @@ func (sys *System) SetDirection(elevatorIP string, direction int){
 	}
 	elevator.Direction = direction
 	sys.Elevators[elevatorIP] = elevator
+}
+
+func (sys *System) DoorClosedEvent(elevatorIP string){
+	elevator,exists := sys.Elevators[elevatorIP]
+	if !exists{
+		return
+	}
+	if elevator.CurrentBehaviour == Stopped{			
+		elevator.CurrentBehaviour = Moving
+		sys.Elevators[elevatorIP] = elevator	
+	}
 }
 
 func (sys *System) SetBehaviour(elevatorIP string, behaviour Behaviour){
@@ -209,6 +220,9 @@ func (sys *System) Command() (network.Message,bool){
 	//Find a way to make sure to not send elevators that have just stopped with door open. Maybe include a state for door open
 	//and let the elevators report when they are ready?
 	for elevIP := range sys.Elevators{ // if elev.behaviour != door open?
+		if sys.Elevators[elevIP].CurrentBehaviour == Stopped{
+			continue
+		}
 		for floor := 0; floor < 4; floor++{
 			if sys.Elevators[elevIP].Orders[floor]{
 				command.Receiver = elevIP
