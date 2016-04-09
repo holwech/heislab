@@ -6,6 +6,8 @@ import (
 	"fmt"
 )
 
+const info = true
+
 type Message struct {
 	Sender, Receiver, ID, Response string
 	Content interface{}
@@ -14,6 +16,13 @@ type Message struct {
 type Network struct {
 	slaveReceive, slaveStatus, slaveSend, masterReceive, masterStatus, masterSend chan Message
 	LocalIP string
+}
+
+func printInfo(comment string, message *Message) {
+	if info {
+		fmt.Println("NETW: " + comment)
+		PrintMessage(message)
+	}
 }
 
 func PrintMessage (message *Message) {
@@ -70,18 +79,18 @@ func sorter(nw *Network, commSend chan<- communication.CommData, commReceive <-c
 		case message := <- nw.slaveSend:
 			commMsg := *communication.ResolveMsg(message.Receiver, message.ID, message.Response, message.Content)
 			commSend <- commMsg
-			fmt.Println("asdf")
-
 		case message := <- nw.masterSend:
 			commMsg := *communication.ResolveMsg(message.Receiver, message.ID, message.Response, message.Content)
 			commSend <- commMsg
 		case message := <- commReceive:
 			convMsg := commToMsg(&message)
-			if convMsg.Receiver == nw.LocalIP || convMsg.Receiver == "ALL"  {
+			if (convMsg.Receiver == nw.LocalIP || convMsg.Receiver == "ALL") && (convMsg.Sender != nw.LocalIP)  {
 				nw.slaveReceive <- convMsg
+				printInfo("Slave received message", &convMsg)
 			}
 			if convMsg.ID[0] != 'M' {
 				nw.masterReceive <- convMsg
+				printInfo("Master received message", &convMsg)
 			}
 		case status := <- commStatus:
 			convStatus := connToMsg(&status)

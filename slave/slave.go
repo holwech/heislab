@@ -11,7 +11,6 @@ import (
 
 func InitElevator() (<-chan driver.InnerOrder,<-chan driver.OuterOrder, <-chan int){
 	driver.InitHardware()
-	
 	innerChan := driver.ListenInnerPanel()
 	outerChan := driver.ListenOuterPanel()
 	floorChan := driver.ListenFloorSensor()
@@ -36,50 +35,6 @@ func InitNetwork(slaveSend chan network.Message, masterSend chan network.Message
 	return nw
 }
 
-func initSlave(slaveSend chan<- network.Message, slaveReceive <-chan network.Message) string {
-	time.Sleep(time.Millisecond * 10)
-	masterID := network.LocalIP()
-	timer := time.NewTimer(50 * time.Millisecond).C
-	msg := network.Message{
-		Sender: network.LocalIP(),
-		Receiver: network.LocalIP(),
-		ID: network.CreateID("Slave"),
-		Response: cl.Startup,
-		Content: time.Now(),
-	}
-	slaveSend <- msg
-
-	for{
-		flag := false
-		select{
-		case message := <- slaveReceive:
-
-			if message.Response == cl.JoinMaster {
-
-				masterID = message.Sender
-				flag = true
-				fmt.Println("Master found")
-			}
-		case <- timer:
-
-			flag = true
-			message := network.Message{
-				Sender: network.LocalIP(),
-				Receiver: network.LocalIP(),
-				ID: network.CreateID("Slave"),
-				Response: cl.SetMaster,
-				Content: time.Now(),
-			}
-			slaveSend <- message
-			fmt.Println("No master found")
-		}
-		if flag == true {
-			break
-		}
-	}
-
-	return masterID
-}
 
 func Run() {
 	innerChan, outerChan, floorChan := InitElevator()
@@ -88,12 +43,21 @@ func Run() {
 	nw := InitNetwork(slaveSend, masterSend)
 	slaveReceive, slaveStatus := nw.SChannels()
 	go master.Run(nw, masterSend)
-	masterID := initSlave(slaveSend, slaveReceive)
 	doorTimer := time.NewTimer(3 * time.Second)
 	doorTimer.Stop()
+	masterID := cl.Unknown
+	startupTimer := time.NewTimer(50 * time.Millisecond).C
+	slaveSend <- network.Message{
+		Sender: network.LocalIP(),
+		Receiver: network.LocalIP(),
+		ID: network.CreateID("Slave"),
+		Response: cl.Startup,
+		Content: time.Now(),
+	}
 	for {
 		select{
 		case innerOrder := <- innerChan:
+			driver.SetInnerPanelLamp(innerOrder.Floor)
 			message := network.Message{
 				Sender: network.LocalIP(),
 				Receiver: masterID,
@@ -121,14 +85,14 @@ func Run() {
 			}
 			slaveSend <- message
 		case <- doorTimer.C:
-			message := network.Message{
+			driver.SetDoorLamp(0)
+			slaveSend <- network.Message{
 				Sender: network.LocalIP(),
 				Receiver: masterID,
 				ID: network.CreateID("Slave"),
 				Response: cl.DoorClosed,
 				Content: "",
 			}
-			slaveSend <- message
 		case message := <- slaveReceive:
 			switch message.Response{
 			case cl.Up:
@@ -137,8 +101,21 @@ func Run() {
 				driver.SetMotorDirection(-1)
 			case cl.Stop:
 				driver.SetMotorDirection(0)
-				
+				driver.SetDoorLamp(1)
+				doorTimer.Reset()
+			case cl.JoinMaster:
+				startupTimer.Stop()
+				masterID = message.Sender
 			}
+		case <- startupTimer:
+			slaveSend <- network.Message{
+				Sender: network.LocalIP(),
+				Receiver: network.LocalIP(),
+				ID: network.CreateID("Slave"),
+				Response: cl.SetMaster,
+				Content: time.Now(),
+			}
+			masterID = nw.LocalIP()
 		case <- slaveStatus:
 			break
 		}
