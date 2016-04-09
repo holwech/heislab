@@ -4,6 +4,7 @@ import (
 	"github.com/holwech/heislab/driver"
 	"github.com/holwech/heislab/network"
 	"github.com/holwech/heislab/cl"
+	"github.com/holwech/heislab/master"
 	"fmt"
 )
 
@@ -40,14 +41,14 @@ func Run() {
 	masterSend = make(chan network.Message)
 	nw := InitNetwork(slaveSend, masterSend)
 	slaveReceive, slaveStatus := nw.SChannels()
-	InitMaster(nw, masterSend)
+	master.Run(nw, masterSend)
 
 	for {
 		select{
 		case innerOrder := <- innerChan:
 			message := network.Message{
 				Sender: network.LocalIP(),
-				Receiver: ?????,
+				Receiver: network.LocalIP(),
 				ID: network.CreateID("Slave"),
 				Response: cl.InnerOrder,
 				Content: innerOrder,
@@ -56,7 +57,7 @@ func Run() {
 		case outerOrder := <- outerChan:
 			message := network.Message{
 				Sender: network.LocalIP(),
-				Receiver: ?????,
+				Receiver: network.LocalIP(),
 				ID: network.CreateID("Slave"),
 				Response: cl.OuterOrder,
 				Content: outerOrder,
@@ -65,7 +66,7 @@ func Run() {
 		case newFloor := <- floorChan:
 			message := network.Message{
 				Sender: network.LocalIP(),
-				Receiver: ?????,
+				Receiver: network.LocalIP(),
 				ID: network.CreateID("Slave"),
 				Response: cl.Floor,
 				Content: newFloor,
@@ -81,7 +82,7 @@ func Run() {
 				driver.SetMotorDirectioin(0)
 			}
 		case status := <- slaveStatus:
-			?????
+			break
 	}
 }
 
