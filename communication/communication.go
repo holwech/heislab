@@ -10,7 +10,7 @@ import (
 
 const com_id = "2323" //Identifier for all elevators on the system
 const port = ":3000"
-const broadcast_addr = "localhost"
+const broadcast_addr = "255.255.255.255"
 
 // DataValue should ONLY be int og string
 type CommData struct {

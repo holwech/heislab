@@ -38,7 +38,7 @@ func sender(slaveSend chan Message) {
 	count := 0
 	for{
 		time.Sleep(time.Second * 5)
-		id, _ := CreateID("Slave")
+		id := CreateID("Slave")
 		message := Message{
 			LocalIP(),
 			LocalIP(),

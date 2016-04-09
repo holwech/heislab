@@ -11,7 +11,7 @@ import (
 	//When do we send new orders to elevators?
 	//Does activation message come from slave?
 	//Will the behaviour and order list be the same on all masters running?
-func Run(nw network.Network, sendMaster chan network.Message){
+func Run(nw *network.Network, sendMaster chan network.Message){
 	messageChan, statusChan := nw.MChannels()
 	sys := orders.NewSystem()
 	isActive := false

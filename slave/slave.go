@@ -19,7 +19,7 @@ func InitElevator() (<-chan driver.InnerOrder,<-chan driver.OuterOrder, <-chan i
 	currentFloor := <-floorChan
 	if currentFloor != 0{
 		driver.SetMotorDirection(-1)
-		for currentFloor != 1{
+		for currentFloor != 0{
 			currentFloor = <-floorChan
 		}
 		driver.SetMotorDirection(0)
@@ -28,7 +28,7 @@ func InitElevator() (<-chan driver.InnerOrder,<-chan driver.OuterOrder, <-chan i
 	return innerChan,outerChan,floorChan
 }
 
-func InitNetwork(slaveSend chan <- Message, masterSend chan <- Message) *network.Network {
+func InitNetwork(slaveSend chan network.Message, masterSend chan network.Message) *network.Network {
 	nw := new(network.Network)
 	nw.Init(slaveSend, masterSend)
 	network.Run(nw)
@@ -37,11 +37,12 @@ func InitNetwork(slaveSend chan <- Message, masterSend chan <- Message) *network
 
 func Run() {
 	innerChan, outerChan, floorChan := InitElevator()
-	slaveSend = make(chan network.Message)
-	masterSend = make(chan network.Message)
+	slaveSend := make(chan network.Message)
+	masterSend := make(chan network.Message)
 	nw := InitNetwork(slaveSend, masterSend)
 	slaveReceive, slaveStatus := nw.SChannels()
-	master.Run(nw, masterSend)
+	go master.Run(nw, masterSend)
+	fmt.Println("yolo")
 
 	for {
 		select{
@@ -73,49 +74,7 @@ func Run() {
 			}
 			slaveSend <- message
 		case message := <- slaveReceive:
-			select message.Response{
-			case "MOVEUP":
-				driver.SetMotorDirection(1)
-			case "MOVEDOWN":
-				driver.SetMotorDirection(-1)
-			case "STOP":
-				driver.SetMotorDirectioin(0)
-			}
-		case status := <- slaveStatus:
-			break
-	}
-}
-
-func main(){
-	innerChan, outerChan, floorChan := InitElevator()
-
-
-	for{
-		select{
-		case innerOrder := <-innerChan:
-			com := communication.CommData{
-				DataType:"INNER",
-				DataValue:innerOrder,
-			}
-			recv_m <- com
-
-		case outerOrder := <-outerChan:
-			com := communication.CommData{
-				DataType:"OUTER",
-				DataValue:outerOrder,
-			}
-			recv_m <- com
-			
-		case newFloor := <-floorChan:
-			com := communication.CommData{
-				DataType:"FLOOR",
-				DataValue:newFloor,
-			}
-			recv_m <- com
-			
-		case commData := <-messageChan:
-			fmt.Println(commData)
-			switch commData.DataType{
+			switch message.Response{
 			case "MOVEUP":
 				driver.SetMotorDirection(1)
 			case "MOVEDOWN":
@@ -123,9 +82,12 @@ func main(){
 			case "STOP":
 				driver.SetMotorDirection(0)
 			}
+		case <- slaveStatus:
+			break
 		}
-		case connStatus := <-statusChan:
-			if no master:
-				spawn master
 	}
+}
+
+func main(){
+	Run()
 }
