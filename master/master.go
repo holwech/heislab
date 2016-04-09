@@ -18,14 +18,21 @@ func Run(nw *network.Network, sendMaster chan network.Message){
 
 	for{
 	select{
-	case message := <- messageChan:		
+	case message := <- messageChan:	
 		switch message.Response{
 		case cl.InnerOrder:
-			sys.AddInnerOrder(message.Sender,message.Content.(int))
+			content := message.Content.(map[string]interface{})	
+			floor := int(content["Floor"].(float64))
+			sys.AddInnerOrder(message.Sender,floor)			
 		case cl.OuterOrder:
-			sys.AddOuterOrder(int(message.Content.(string)[0]),int(message.Content.(string)[1]))
+			content := message.Content.(map[string]interface{})	
+			floor := int(content["Floor"].(float64))
+			direction := int(content["Direction"].(float64))
+			sys.AddOuterOrder(floor,direction)
 		case cl.Floor:
-			sys.UpdateFloor(message.Sender,message.Content.(int))
+			floor := int(message.Content.(float64))
+			sys.UpdateFloor(message.Sender,floor)
+
 		case cl.Startup:
 			sys.AddElevator(message.Sender)
 		case cl.Ping:

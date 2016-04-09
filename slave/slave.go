@@ -5,7 +5,6 @@ import (
 	"github.com/holwech/heislab/network"
 	"github.com/holwech/heislab/cl"
 	"github.com/holwech/heislab/master"
-	"fmt"
 )
 
 func InitElevator() (<-chan driver.InnerOrder,<-chan driver.OuterOrder, <-chan int){
@@ -42,7 +41,6 @@ func Run() {
 	nw := InitNetwork(slaveSend, masterSend)
 	slaveReceive, slaveStatus := nw.SChannels()
 	go master.Run(nw, masterSend)
-	fmt.Println("yolo")
 
 	for {
 		select{

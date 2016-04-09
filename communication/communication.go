@@ -9,9 +9,15 @@ import (
 )
 
 const com_id = "2323" //Identifier for all elevators on the system
-const port = ":3000"
+const port = ":22212"
 const broadcast_addr = "255.255.255.255"
-
+type InnerOrder struct{
+	Floor int `json:"Floor"`
+}
+type OuterOrder struct{
+	Floor int `json:"Floor"`
+	Direction int `json:"Direction"`
+}
 // DataValue should ONLY be int og string
 type CommData struct {
 	Identifier string
