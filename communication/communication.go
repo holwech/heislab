@@ -141,6 +141,7 @@ func broadcast(sendCh chan CommData, commSentStatus chan ConnData) {
 		printError("=== ERROR: DialUDP in Broadcast failed.", err)
 	}
 	defer connection.Close()
+	count := 1
 	for{
 		message := <- sendCh
 		convMsg, err := json.Marshal(message)
@@ -148,7 +149,8 @@ func broadcast(sendCh chan CommData, commSentStatus chan ConnData) {
 			printError("=== ERROR: Convertion of json failed in broadcast", err)
 		}
 		connection.Write(convMsg)
-		fmt.Printf("COMM: Message sent successfully!\n")
+		fmt.Printf("COMM: Message sent successfully! %d\n", count)
+		PrintMessage(message)
 	}
 }
 

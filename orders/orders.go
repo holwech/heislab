@@ -200,20 +200,20 @@ func (sys *System) Command() (network.Message,bool){
 	//Find a way to make sure to not send elevators that have just stopped with door open. Maybe include a state for door open
 	//and let the elevators report when they are ready?
 	for elevIP := range sys.Elevators{ // if elev.behaviour != door open?
+		if sys.Elevators[elevIP].Floor!= -1{
 		for floor := 0; floor < 4; floor++{
 			if sys.Elevators[elevIP].Orders[floor]{
 				command.Receiver = elevIP
-				if sys.Elevators[elevIP].Floor!= -1{
-					if floor < sys.Elevators[elevIP].Floor{
-						command.Response = cl.Down 
-						sys.SetDirection(elevIP, -1)
-					}else{
-						command.Response = cl.Up
-						sys.SetDirection(elevIP, 1)
-					}
-					sys.SetBehaviour(elevIP, Moving)
+				if floor < sys.Elevators[elevIP].Floor{
+					command.Response = cl.Down 
+					sys.SetDirection(elevIP, -1)
+				}else{
+					command.Response = cl.Up
+					sys.SetDirection(elevIP, 1)
 				}
+				sys.SetBehaviour(elevIP, Moving)
 				return command,true
+				}
 			}
 		}
 	}
