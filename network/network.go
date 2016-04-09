@@ -75,10 +75,12 @@ func sorter(nw *Network, commSend chan<- communication.CommData, commReceive <-c
 			commSend <- commMsg
 		case message := <- commReceive:
 			convMsg := commToMsg(&message)
-			if convMsg.Receiver == nw.LocalIP {
+			if convMsg.Receiver == ( nw.LocalIP || "ALL" ) {
 				nw.slaveReceive <- convMsg
 			}
-			nw.masterReceive <- convMsg
+			if convMsg.ID[0] != 'M'{
+				nw.masterReceive <- convMsg
+			}
 		case status := <- commStatus:
 			convStatus := connToMsg(&status)
 			if convStatus.ID[0] == 'S'{
