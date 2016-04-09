@@ -1,7 +1,9 @@
 package orders
 
-import "github.com/holwech/heislab/network"
-
+import (
+	"github.com/holwech/heislab/network"
+	"github.com/holwech/heislab/cl"
+)	
 /*WANT: 
 
 
@@ -64,7 +66,7 @@ func (sys *System) AddElevator(elevatorIP string) bool{
 func (sys *System) RemoveElevator(elevatorIP string) bool{
 	_, exists := sys.Elevators[elevatorIP]
 	if exists{
-		delete(sys.Elevators[elevatorIP], elevatorIP)
+		delete(sys.Elevators, elevatorIP)
 	}
 	return exists
 }
@@ -114,6 +116,17 @@ func (sys *System) UpdateFloor(elevatorIP string, floor int){
 	sys.Elevators[elevatorIP] = elevator
 }
 
+func (sys *System) UpdateDirection(elevatorIP string, direction int){
+	elevator := sys.Elevators[elevatorIP]
+	elevator.Direction = direction
+	sys.Elevators[elevatorIP] = elevator
+}
+
+func (sys *System) UpdateBehaviour(elevatorIP string, behaviour Behaviour){
+	elevator := sys.Elevators[elevatorIP]
+	elevator.CurrentBehaviour = behaviour
+	sys.Elevators[elevatorIP] = elevator
+}
 
 //Remove orders when they are finished
 //Prevent multiple elevators from going for the same order. 
@@ -123,30 +136,30 @@ func (sys *System) Command() (network.Message,bool){
 	var command network.Message;
 	//First stop the elevators that have reached their ordered floor - one at a time
 	//Check if an elevator has more orders, and set state accordingly -- tbd
-	for elev := range sys.Elevators{
-		if elev.Orders[elev.Floor] == true{
-			sys.RemoveInnerOrder(elev,elev.Floor)
-			command.Receiver = elev	
+	for elevIP := range sys.Elevators{
+		if sys.Elevators[elevIP].Orders[sys.Elevators[elevIP].Floor] == true{
+			sys.RemoveInnerOrder(elevIP,sys.Elevators[elevIP].Floor)
+			command.Receiver = elevIP
 			command.Response = cl.Stop
 			return command,true
 		}
 	}
-	//Then dispatch unhandled orders to the connected elevators - all?
+	//Dispatch unhandled orders to the connected elevators - all?
 	for floor := 0; floor < 4; floor++{
 		if sys.UnhandledOrdersUp[floor]{
-			for elev := range sys.Elevators{
+			for elevIP := range sys.Elevators{
 				//Test if this covers stopped elevators that are supposed to go up afterwards
-				if elev.Behaviour == Idle || elev.Direction == 1{
-					sys.AddInnerOrder(elev,floor)
+				if sys.Elevators[elevIP].CurrentBehaviour == Idle || sys.Elevators[elevIP].Direction == 1{
+					sys.AddInnerOrder(elevIP,floor)
 					sys.UnhandledOrdersUp[floor] = false
 				}
 			}
 		}
 		if sys.UnhandledOrdersDown[floor]{
-			for elev := range sys.Elevators{
+			for elevIP := range sys.Elevators{
 				//Test if this covers stopped elevators that are supposed to go up afterwards
-				if elev.Behaviour == Idle || elev.Direction == -1{
-					sys.AddInnerOrder(elev,floor)
+				if sys.Elevators[elevIP].CurrentBehaviour == Idle || sys.Elevators[elevIP].Direction == -1{
+					sys.AddInnerOrder(elevIP,floor)
 					sys.UnhandledOrdersDown[floor] = false
 				}
 			}
@@ -155,20 +168,19 @@ func (sys *System) Command() (network.Message,bool){
 	//Finally send elevators to their orders
 	//Find a way to make sure to not send elevators that have just stopped with door open. Maybe include a state for door open
 	//and let the elevators report when they are ready?
-	for elev := range sys.Elevators{ // if elev.behaviour != door open?
+	for elevIP := range sys.Elevators{ // if elev.behaviour != door open?
 		for floor := 0; floor < 4; floor++{
-			if elev.Orders[floor]{
-				command.Receiver = elev
+			if sys.Elevators[elevIP].Orders[floor]{
+				command.Receiver = elevIP
 				command.Response = cl.Move 
-				if floor < elev.Floor{
+				if floor < sys.Elevators[elevIP].Floor{
 					command.Content = cl.Down
-					sys.Elevators[elev].Direction = -1
-				}
-				else{
+					sys.UpdateDirection(elevIP, -1)
+				}else{
 					command.Content = cl.Up
-					sys.Elevators[elev].Direction = 1
+					sys.UpdateDirection(elevIP, 1)
 				}
-					sys.Elevators[elev].CurrentBehaviour = Moving
+					sys.UpdateBehaviour(elevIP, Moving)
 				return command,true
 			}
 		}

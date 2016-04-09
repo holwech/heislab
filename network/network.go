@@ -3,7 +3,6 @@ package network
 import (
 	"github.com/holwech/heislab/communication"
 	"github.com/satori/go.uuid"
-	"errors"
 	"fmt"
 )
 
@@ -25,15 +24,12 @@ func PrintMessage (message *Message) {
 	fmt.Printf("NETW: Content: %v\n", message.Content)
 }
 
-func CreateID(senderType string) (string, error) {
+func CreateID(senderType string) (string) {
 	id := uuid.NewV4()
-	if (senderType != "Master") && (senderType != "Slave") {
-		return id.String(), errors.New("Sender type has to be of value Master or Slave")
-	}
 	if senderType == "Master" {
-		return  "M" + id.String(), nil
+		return  "M" + id.String()
 	} else{
-		return  "S" + id.String(), nil
+		return  "S" + id.String()
 	}
 }
 
