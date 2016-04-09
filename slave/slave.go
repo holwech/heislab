@@ -73,11 +73,11 @@ func Run() {
 			slaveSend <- message
 		case message := <- slaveReceive:
 			switch message.Response{
-			case "MOVEUP":
+			case cl.Up:
 				driver.SetMotorDirection(1)
-			case "MOVEDOWN":
+			case cl.Down:
 				driver.SetMotorDirection(-1)
-			case "STOP":
+			case cl.Stop:
 				driver.SetMotorDirection(0)
 			}
 		case <- slaveStatus:

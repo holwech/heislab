@@ -3,6 +3,7 @@ package orders
 import (
 	"github.com/holwech/heislab/network"
 	"github.com/holwech/heislab/cl"
+	"fmt"
 )	
 /*WANT: 
 
@@ -25,7 +26,6 @@ be considered part of elevator state
 and
 outer orders is global
 */
-
 
 type Behaviour int
 const (
@@ -53,6 +53,17 @@ func NewSystem() *System{
 	return &s
 }
 
+func (sys *System) CreateBackup() network.Message{
+	backup := network.Message{network.LocalIP(),"",
+		network.CreateID(cl.Master),cl.Backup,sys}
+	return backup
+}
+
+func SystemFromBackup(msg network.Message) *System{
+	var s System
+	s = msg.Content.(System)
+	return &s
+}
 
 func (sys *System) AddElevator(elevatorIP string) bool{
 	_, exists := sys.Elevators[elevatorIP]
@@ -71,7 +82,7 @@ func (sys *System) RemoveElevator(elevatorIP string) bool{
 	return exists
 }
 
-func (sys *System) AddInnerOrder(elevatorIP string, floor int) bool{
+func (sys *System) AssignOrder(elevatorIP string, floor int) bool{
 	alreadyAdded := false
 	elevator, exists := sys.Elevators[elevatorIP];
 
@@ -86,7 +97,7 @@ func (sys *System) AddInnerOrder(elevatorIP string, floor int) bool{
 	return exists && !alreadyAdded
 }
 
-func (sys *System) RemoveInnerOrder(elevatorIP string, floor int){
+func (sys *System) RemoveOrder(elevatorIP string, floor int){
 	elevator := sys.Elevators[elevatorIP];
 	elevator.Orders[floor] = false
 	sys.Elevators[elevatorIP] = elevator
@@ -111,19 +122,28 @@ func (sys *System) AddOuterOrder(floor, direction int) bool{
 }
 
 func (sys *System) UpdateFloor(elevatorIP string, floor int){
-	elevator := sys.Elevators[elevatorIP]
+	elevator,exists := sys.Elevators[elevatorIP]
+	if !exists{
+		return
+	}
 	elevator.Floor = floor
 	sys.Elevators[elevatorIP] = elevator
 }
 
-func (sys *System) UpdateDirection(elevatorIP string, direction int){
-	elevator := sys.Elevators[elevatorIP]
+func (sys *System) SetDirection(elevatorIP string, direction int){
+	elevator,exists := sys.Elevators[elevatorIP]
+	if !exists{
+		return
+	}
 	elevator.Direction = direction
 	sys.Elevators[elevatorIP] = elevator
 }
 
-func (sys *System) UpdateBehaviour(elevatorIP string, behaviour Behaviour){
-	elevator := sys.Elevators[elevatorIP]
+func (sys *System) SetBehaviour(elevatorIP string, behaviour Behaviour){
+	elevator,exists := sys.Elevators[elevatorIP]
+	if !exists{
+		return
+	}
 	elevator.CurrentBehaviour = behaviour
 	sys.Elevators[elevatorIP] = elevator
 }
@@ -133,24 +153,37 @@ func (sys *System) UpdateBehaviour(elevatorIP string, behaviour Behaviour){
 //Let each elevator have a list of orders to take?
 
 func (sys *System) Command() (network.Message,bool){
+	fmt.Println("command")
+
 	var command network.Message;
 	//First stop the elevators that have reached their ordered floor - one at a time
 	//Check if an elevator has more orders, and set state accordingly -- tbd
 	for elevIP := range sys.Elevators{
-		if sys.Elevators[elevIP].Orders[sys.Elevators[elevIP].Floor] == true{
-			sys.RemoveInnerOrder(elevIP,sys.Elevators[elevIP].Floor)
+		floor := sys.Elevators[elevIP].Floor
+		if floor == -1{
+			continue
+		}
+		if sys.Elevators[elevIP].Orders[floor] == true{
+			sys.RemoveOrder(elevIP,floor)
 			command.Receiver = elevIP
 			command.Response = cl.Stop
+			sys.SetBehaviour(elevIP, Idle)
+			for floor := 0; floor < 3; floor++{
+				if sys.Elevators[elevIP].Orders[floor]{
+					sys.SetBehaviour(elevIP,Moving)
+				}
+			}
 			return command,true
 		}
 	}
+
 	//Dispatch unhandled orders to the connected elevators - all?
 	for floor := 0; floor < 4; floor++{
 		if sys.UnhandledOrdersUp[floor]{
 			for elevIP := range sys.Elevators{
 				//Test if this covers stopped elevators that are supposed to go up afterwards
 				if sys.Elevators[elevIP].CurrentBehaviour == Idle || sys.Elevators[elevIP].Direction == 1{
-					sys.AddInnerOrder(elevIP,floor)
+					sys.AssignOrder(elevIP,floor)
 					sys.UnhandledOrdersUp[floor] = false
 				}
 			}
@@ -159,7 +192,7 @@ func (sys *System) Command() (network.Message,bool){
 			for elevIP := range sys.Elevators{
 				//Test if this covers stopped elevators that are supposed to go up afterwards
 				if sys.Elevators[elevIP].CurrentBehaviour == Idle || sys.Elevators[elevIP].Direction == -1{
-					sys.AddInnerOrder(elevIP,floor)
+					sys.AssignOrder(elevIP,floor)
 					sys.UnhandledOrdersDown[floor] = false
 				}
 			}
@@ -172,15 +205,16 @@ func (sys *System) Command() (network.Message,bool){
 		for floor := 0; floor < 4; floor++{
 			if sys.Elevators[elevIP].Orders[floor]{
 				command.Receiver = elevIP
-				command.Response = cl.Move 
-				if floor < sys.Elevators[elevIP].Floor{
-					command.Content = cl.Down
-					sys.UpdateDirection(elevIP, -1)
-				}else{
-					command.Content = cl.Up
-					sys.UpdateDirection(elevIP, 1)
+				if sys.Elevators[elevIP].Floor!= -1{
+					if floor < sys.Elevators[elevIP].Floor{
+						command.Response = cl.Down 
+						sys.SetDirection(elevIP, -1)
+					}else{
+						command.Response = cl.Up
+						sys.SetDirection(elevIP, 1)
+					}
+					sys.SetBehaviour(elevIP, Moving)
 				}
-					sys.UpdateBehaviour(elevIP, Moving)
 				return command,true
 			}
 		}

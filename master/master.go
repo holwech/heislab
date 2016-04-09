@@ -4,9 +4,13 @@ import (
 	"github.com/holwech/heislab/network"
 	"github.com/holwech/heislab/cl"
 	"github.com/holwech/heislab/orders"	
+	"time"
+	"fmt"
 )
 
-
+func Init(nw *network.Network, sendMaster chan network.Message) {
+	go Run(nw,sendMaster)
+}
 //Listen to inputs from slaves and send actions back
 	//When do we send new orders to elevators?
 	//Does activation message come from slave?
@@ -14,8 +18,9 @@ import (
 func Run(nw *network.Network, sendMaster chan network.Message){
 	messageChan, statusChan := nw.MChannels()
 	sys := orders.NewSystem()
-	isActive := false
-
+	isActive := true
+	ticker := time.NewTicker(200 * time.Millisecond)
+	sys.AddElevator("129.241.187.146")
 	for{
 	select{
 	case message := <- messageChan:	
@@ -23,7 +28,7 @@ func Run(nw *network.Network, sendMaster chan network.Message){
 		case cl.InnerOrder:
 			content := message.Content.(map[string]interface{})	
 			floor := int(content["Floor"].(float64))
-			sys.AddInnerOrder(message.Sender,floor)			
+			sys.AssignOrder(message.Sender,floor)			
 		case cl.OuterOrder:
 			content := message.Content.(map[string]interface{})	
 			floor := int(content["Floor"].(float64))
@@ -32,8 +37,9 @@ func Run(nw *network.Network, sendMaster chan network.Message){
 		case cl.Floor:
 			floor := int(message.Content.(float64))
 			sys.UpdateFloor(message.Sender,floor)
-
 		case cl.Startup:
+			ping := network.Message{network.LocalIP(),message.Sender,network.CreateID(cl.Master),cl.JoinMaster,""}
+			sendMaster <- ping
 			sys.AddElevator(message.Sender)
 		case cl.Ping:
 			ping := network.Message{network.LocalIP(),message.Sender,network.CreateID(cl.Master),cl.Ping,""}
@@ -46,12 +52,14 @@ func Run(nw *network.Network, sendMaster chan network.Message){
 		case cl.Timeout:
 			sys.RemoveElevator(connStatus.Sender)
 	}
-	default:
+	case <-ticker.C:
+			fmt.Println(sys)
 			cmd, hasCommand := sys.Command()
 			cmd.Sender = network.LocalIP()
 			cmd.ID = network.CreateID(cl.Master)
 			if hasCommand && isActive{
 				sendMaster <- cmd
+				fmt.Println(cmd)
 			}
 		}
 	}
