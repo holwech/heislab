@@ -1,4 +1,4 @@
-package slave
+package main
 
 import (
 	"github.com/holwech/heislab/driver"
@@ -17,7 +17,7 @@ func InitElevator() (<-chan driver.InnerOrder,<-chan driver.OuterOrder, <-chan i
 
 	//Drive down to first floor
 	currentFloor := <-floorChan
-	if currentFloor != 1{
+	if currentFloor != 0{
 		driver.SetMotorDirection(-1)
 		for currentFloor != 1{
 			currentFloor = <-floorChan

@@ -28,17 +28,17 @@ func SetMotorDirection(direction int){
 
 func SetOuterPanelLamp(direction, floor, value int){
 	if direction == 1 {
-		C.elev_set_button_lamp(cOuterPanelUp,castCfloor(floor),C.int(value))
+		C.elev_set_button_lamp(cOuterPanelUp,C.int(floor),C.int(value))
 	}else if direction == -1{
-		C.elev_set_button_lamp(cOuterPanelDown,castCfloor(floor),C.int(value))
+		C.elev_set_button_lamp(cOuterPanelDown,C.int(floor),C.int(value))
 	}
 }
 func SetInnerPanelLamp(floor,value int) {
-	C.elev_set_button_lamp(cInnerPanel,castCfloor(floor),C.int(value))
+	C.elev_set_button_lamp(cInnerPanel,C.int(floor),C.int(value))
 }
 
 func SetFloorIndicatorLamp(floor int){
-	C.elev_set_floor_indicator(castCfloor(floor))
+	C.elev_set_floor_indicator(C.int(floor))
 }
 
 func SetDoorLamp(value int){
@@ -54,16 +54,16 @@ func ListenInnerPanel() <-chan InnerOrder{
 	go func(){
 		buttonPressed := [4]bool {false,false,false,false}
 		for{
-			for floor := 1; floor <= 4; floor++{
-				if C.elev_get_button_signal(cInnerPanel,castCfloor(floor)) != 0{
-					if buttonPressed[floor-1] == false{
+			for floor := 0; floor < 4; floor++{
+				if C.elev_get_button_signal(cInnerPanel,C.int(floor)) != 0{
+					if buttonPressed[floor] == false{
 						var order InnerOrder
 						order.Floor = floor
 						orderChan <- order	
-						buttonPressed[floor-1] = true
+						buttonPressed[floor] = true
 					}
 				}else{
-					buttonPressed[floor-1] = false
+					buttonPressed[floor] = false
 				}
 			} 
 		}
@@ -77,28 +77,28 @@ func ListenOuterPanel() <-chan OuterOrder{
 		buttonPressedUp := [4]bool {false,false,false,false}
 		buttonPressedDown := [4]bool {false,false,false,false}
 		for{
-			for floor := 1; floor <= 4; floor++{
-				if C.elev_get_button_signal(cOuterPanelUp,castCfloor(floor)) != 0{
-					if buttonPressedUp[floor-1] == false{				
+			for floor := 0; floor < 4; floor++{
+				if C.elev_get_button_signal(cOuterPanelUp,C.int(floor)) != 0{
+					if buttonPressedUp[floor] == false{				
 						var order OuterOrder
 						order.Floor = floor
 						order.Direction = 1
 						orderChan <- order
-						buttonPressedUp[floor-1] = true
+						buttonPressedUp[floor] = true
 					}
 				}else{
-					buttonPressedUp[floor-1] = false
+					buttonPressedUp[floor] = false
 				}
-				if C.elev_get_button_signal(cOuterPanelDown,castCfloor(floor)) != 0{
-					if buttonPressedDown[floor-1] == false{
+				if C.elev_get_button_signal(cOuterPanelDown,C.int(floor)) != 0{
+					if buttonPressedDown[floor] == false{
 						var order OuterOrder
 						order.Floor = floor
 						order.Direction = -1
 						orderChan <- order	
-						buttonPressedDown[floor-1] = true
+						buttonPressedDown[floor] = true
 					}
 				} else{
-					buttonPressedDown[floor-1] = false
+					buttonPressedDown[floor] = false
 				}
 			} 
 		}
@@ -109,9 +109,9 @@ func ListenOuterPanel() <-chan OuterOrder{
 func ListenFloorSensor() <-chan int{
 	floorChan := make(chan int)
 	go func(){
-		prevFloor := 0;
+		prevFloor := -2;
 		for{
-			currentFloor := castFloor(C.elev_get_floor_sensor_signal())
+			currentFloor := int(C.elev_get_floor_sensor_signal())
 			if currentFloor != prevFloor{
 				floorChan <- currentFloor
 				prevFloor = currentFloor
@@ -121,18 +121,4 @@ func ListenFloorSensor() <-chan int{
 	return floorChan
 }
 
-func castCfloor(floor int) C.int{
-	return C.int(floor-1)
-}
 
-func castFloor(cFloor C.int) int{
-	sensorVal := int(cFloor)
-	floor := 0
-
-	if sensorVal == -1{
-		floor = -1
-	} else{
-		floor = sensorVal +1
-	} 
-	return floor
-}

@@ -1,77 +1,51 @@
 package master
 
-import network
-
-type Behaviour int
-const (
-	Idle Behaviour = iota
-	Moving
-	Stopped
+import (
+	"github.com/holwech/heislab/network"
+	"github.com/holwech/heislab/cl"
+	"github.com/holwech/heislab/orders"	
 )
 
-type ElevatorState struct{
-	Floor int
-	Direction int
-	CurrentBehaviour Behaviour
-	InnerOrders [4] bool 
-}
 
 //Listen to inputs from slaves and send actions back
-func master(recv chan communication.CommData,send chan communication.CommData){
-	//messageChan, statusChan := InitNetwork()
-	//sendChan := network get send chan
-
-	
-	elevatorStates := make(map[string]ElevatorState)
-	outerOrdersUp := []bool{false,false,false,false}
-	outerOrdersDown := []bool{false,false,false,false}
-	
-
-	testState := ElevatorState{1,0, Idle}
-	elevators["localhost"] =testState
+	//When do we send new orders to elevators?
+	//Does activation message come from slave?
+	//Will the behaviour and order list be the same on all masters running?
+func Run(nw network.Network, sendMaster chan network.Message){
+	messageChan, statusChan := nw.MChannels()
+	sys := orders.NewSystem()
+	isActive := false
 
 	for{
-		select{
-		case message := <- messageChan:
-			//Decode message, do corresponding action
-			switch commData.DataType{
-			case "INNER":
-				order := commData.DataValue.(driver.InnerOrder)
-				if elevatorStates["localhost"].Floor != order.floor{
-					var elevator = elevators["localhost"]
-					elevator.InnerOrders[order.floor-1] = true
-					elevators["localhost"] = elevator
-					command, hasCommand := orders.GetCommand(elevatorStates,outerOrdersUp,outerOrdersDown)
-					if hasCommand{
-						send <- communication.CommData{
-							DataType = command,
-						}
-					}
-				}
-			case "OUTER":
-				order := commData.DataValue.(driver.OuterOrder)
-				if(order.Direction == 1){
-					outerOrdersUp[order.Floor-1] = true
-				}else{
-					outerOrdersDown[order.Floor-1] = true
-				}
-				command, hasCommand := orders.GetCommand(elevatorStates,outerOrdersUp,outerOrdersDown)
-				if hasCommand{
-					send <- communication.CommData{
-						DataType = command,
-					}
-				}
-			case "FLOOR":
-				floor := commData.DataValue.(int)
-				var elevator = elevators["localhost"]
-				elevator.Floor = floor
-				elevators["localhost"] = elevator
-
-			}
-		case connStatus := <- statusChan:
-			update connected
+	select{
+	case message := <- messageChan:		
+		switch message.Response{
+		case cl.InnerOrder:
+			sys.AddInnerOrder(message.Sender,message.Content.(int))
+		case cl.OuterOrder:
+			sys.AddOuterOrder(int(message.Content.(string)[0]),int(message.Content.(string)[1]))
+		case cl.Floor:
+			sys.UpdateFloor(message.Sender,message.Content.(int))
+		case cl.Startup:
+			sys.AddElevator(message.Sender)
+		case cl.Ping:
+			ping := network.Message{network.LocalIP(),message.Sender,network.CreateID(cl.Master),cl.Ping,""}
+			sendMaster <- ping
+		case cl.SetMaster:
+			isActive = true
 		}
-
+	case connStatus := <- statusChan:
+		switch connStatus.Response{
+		case cl.Timeout:
+			sys.RemoveElevator(connStatus.Sender)
 	}
-
+	default:
+			cmd, hasCommand := sys.Command()
+			cmd.Sender = network.LocalIP()
+			cmd.ID = network.CreateID(cl.Master)
+			if hasCommand && isActive{
+				sendMaster <- cmd
+			}
+		}
+	}
 }
