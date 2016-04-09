@@ -46,7 +46,7 @@ func Run() {
 	doorTimer := time.NewTimer(3 * time.Second)
 	doorTimer.Stop()
 	masterID := cl.Unknown
-	startupTimer := time.NewTimer(50 * time.Millisecond).C
+	startupTimer := time.NewTimer(50 * time.Millisecond)
 	slaveSend <- network.Message{
 		Sender: network.LocalIP(),
 		Receiver: network.LocalIP(),
@@ -57,7 +57,7 @@ func Run() {
 	for {
 		select{
 		case innerOrder := <- innerChan:
-			driver.SetInnerPanelLamp(innerOrder.Floor)
+			driver.SetInnerPanelLamp(innerOrder.Floor,1)
 			message := network.Message{
 				Sender: network.LocalIP(),
 				Receiver: masterID,
@@ -96,18 +96,20 @@ func Run() {
 		case message := <- slaveReceive:
 			switch message.Response{
 			case cl.Up:
+			fmt.Println("MOVEEEEEEEE")
+
 				driver.SetMotorDirection(1)
 			case cl.Down:
 				driver.SetMotorDirection(-1)
 			case cl.Stop:
 				driver.SetMotorDirection(0)
 				driver.SetDoorLamp(1)
-				doorTimer.Reset()
+				doorTimer.Reset(3*time.Second)
 			case cl.JoinMaster:
 				startupTimer.Stop()
 				masterID = message.Sender
 			}
-		case <- startupTimer:
+		case <- startupTimer.C:
 			slaveSend <- network.Message{
 				Sender: network.LocalIP(),
 				Receiver: network.LocalIP(),
@@ -115,7 +117,7 @@ func Run() {
 				Response: cl.SetMaster,
 				Content: time.Now(),
 			}
-			masterID = nw.LocalIP()
+			masterID = nw.LocalIP
 		case <- slaveStatus:
 			break
 		}

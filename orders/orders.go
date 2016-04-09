@@ -34,7 +34,7 @@ const (
 )
 
 type ElevatorState struct{
-	Floor int
+	Floor int //Previous active floor
 	Direction int
 	CurrentBehaviour Behaviour
 	Orders [4] bool
@@ -120,13 +120,34 @@ func (sys *System) AddOuterOrder(floor, direction int) bool{
 	return !alreadyAdded
 }
 
-func (sys *System) UpdateFloor(elevatorIP string, floor int){
+func (sys *System) FloorAction(elevatorIP string, floor int) (network.Message,bool){
+	var command network.Message;
+
 	elevator,exists := sys.Elevators[elevatorIP]
-	if !exists{
-		return
+	if !exists || floor == -1{
+		return command,false
 	}
+	//Update current floor and stop if order in floor
 	elevator.Floor = floor
 	sys.Elevators[elevatorIP] = elevator
+
+	if elevator.Orders[floor]{
+		sys.RemoveOrder(elevatorIP,floor)
+			command.Receiver = elevatorIP
+			command.Response = cl.Stop
+			sys.SetBehaviour(elevatorIP, Idle)
+			for floor := 0; floor < 4; floor++{
+				if sys.Elevators[elevatorIP].Orders[floor]{
+					sys.SetBehaviour(elevatorIP,Moving)
+				}
+			}
+			return command,true
+	}
+
+	//First stop the elevators that have reached their ordered floor - one at a time
+	//Check if an elevator has more orders, and set state accordingly -- tbd
+	return command,false
+
 }
 
 func (sys *System) SetDirection(elevatorIP string, direction int){
@@ -152,55 +173,42 @@ func (sys *System) SetBehaviour(elevatorIP string, behaviour Behaviour){
 //Let each elevator have a list of orders to take?
 
 func (sys *System) Command() (network.Message,bool){
-
 	var command network.Message;
-	//First stop the elevators that have reached their ordered floor - one at a time
-	//Check if an elevator has more orders, and set state accordingly -- tbd
-	for elevIP := range sys.Elevators{
-		floor := sys.Elevators[elevIP].Floor
-		if floor == -1{
-			continue
-		}
-		if sys.Elevators[elevIP].Orders[floor] == true{
-			sys.RemoveOrder(elevIP,floor)
-			command.Receiver = elevIP
-			command.Response = cl.Stop
-			sys.SetBehaviour(elevIP, Idle)
-			for floor := 0; floor < 3; floor++{
-				if sys.Elevators[elevIP].Orders[floor]{
-					sys.SetBehaviour(elevIP,Moving)
-				}
-			}
-			return command,true
-		}
-	}
 
 	//Dispatch unhandled orders to the connected elevators - all?
 	for floor := 0; floor < 4; floor++{
 		if sys.UnhandledOrdersUp[floor]{
 			for elevIP := range sys.Elevators{
 				//Test if this covers stopped elevators that are supposed to go up afterwards
-				if sys.Elevators[elevIP].CurrentBehaviour == Idle || sys.Elevators[elevIP].CurrentBehaviour == Moving && sys.Elevators[elevIP].Direction == 1{
+				if sys.Elevators[elevIP].CurrentBehaviour == Idle || 
+						(sys.Elevators[elevIP].CurrentBehaviour == Moving && 
+						sys.Elevators[elevIP].Direction == 1 &&
+						sys.Elevators[elevIP].Floor < floor){
 					sys.AssignOrder(elevIP,floor)
 					sys.UnhandledOrdersUp[floor] = false
+					break
 				}
 			}
 		}
 		if sys.UnhandledOrdersDown[floor]{
 			for elevIP := range sys.Elevators{
 				//Test if this covers stopped elevators that are supposed to go up afterwards
-				if sys.Elevators[elevIP].CurrentBehaviour == Idle || sys.Elevators[elevIP].CurrentBehaviour == Moving && sys.Elevators[elevIP].Direction == -1{
+				if sys.Elevators[elevIP].CurrentBehaviour == Idle || 
+						(sys.Elevators[elevIP].CurrentBehaviour == Moving && 
+						sys.Elevators[elevIP].Direction == -1 &&
+						sys.Elevators[elevIP].Floor > floor){
 					sys.AssignOrder(elevIP,floor)
 					sys.UnhandledOrdersDown[floor] = false
+					break
 				}
 			}
 		}
 	}
-	//Finally send elevators to their orders
+	//fmt.Println(sys)
+	//Send elevators to their orders
 	//Find a way to make sure to not send elevators that have just stopped with door open. Maybe include a state for door open
 	//and let the elevators report when they are ready?
 	for elevIP := range sys.Elevators{ // if elev.behaviour != door open?
-		if sys.Elevators[elevIP].Floor!= -1{
 		for floor := 0; floor < 4; floor++{
 			if sys.Elevators[elevIP].Orders[floor]{
 				command.Receiver = elevIP
@@ -213,7 +221,6 @@ func (sys *System) Command() (network.Message,bool){
 				}
 				sys.SetBehaviour(elevIP, Moving)
 				return command,true
-				}
 			}
 		}
 	}

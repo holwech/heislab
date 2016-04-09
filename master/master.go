@@ -22,7 +22,7 @@ func Run(nw *network.Network, sendMaster chan network.Message){
 	ticker := time.NewTicker(50 * time.Millisecond)
 	for{
 	select{
-	case message := <- messageChan:	
+	case message := <- messageChan:
 		switch message.Response{
 		case cl.InnerOrder:
 			content := message.Content.(map[string]interface{})	
@@ -34,11 +34,14 @@ func Run(nw *network.Network, sendMaster chan network.Message){
 			direction := int(content["Direction"].(float64))
 			sys.AddOuterOrder(floor,direction)
 		case cl.Floor:		
-
 			floor := int(message.Content.(float64))
-			sys.UpdateFloor(message.Sender,floor)
+			cmd, hasCommand := sys.FloorAction(message.Sender,floor)
+			cmd.Sender = network.LocalIP()
+			cmd.ID = network.CreateID(cl.Master)
+			if hasCommand && isActive{
+				sendMaster <- cmd
+			}
 		case cl.Startup:
-				fmt.Println("MASTE34R")
 
 			ping := network.Message{network.LocalIP(),message.Sender,network.CreateID(cl.Master),cl.JoinMaster,""}
 			if isActive{
@@ -58,6 +61,7 @@ func Run(nw *network.Network, sendMaster chan network.Message){
 			cmd.Sender = network.LocalIP()
 			cmd.ID = network.CreateID(cl.Master)
 			if hasCommand && isActive{
+				fmt.Println("MASTE34R")
 				sendMaster <- cmd
 			}
 		}

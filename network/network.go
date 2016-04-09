@@ -84,7 +84,7 @@ func sorter(nw *Network, commSend chan<- communication.CommData, commReceive <-c
 			commSend <- commMsg
 		case message := <- commReceive:
 			convMsg := commToMsg(&message)
-			if (convMsg.Receiver == nw.LocalIP || convMsg.Receiver == "ALL") && (convMsg.Sender != nw.LocalIP)  {
+			if (convMsg.Receiver == nw.LocalIP || convMsg.Receiver == "ALL") {
 				nw.slaveReceive <- convMsg
 				printInfo("Slave received message", &convMsg)
 			}
