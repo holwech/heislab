@@ -3,7 +3,6 @@ package orders
 import (
 	"github.com/holwech/heislab/network"
 	"github.com/holwech/heislab/cl"
-	"fmt"
 )	
 /*WANT: 
 
@@ -153,7 +152,6 @@ func (sys *System) SetBehaviour(elevatorIP string, behaviour Behaviour){
 //Let each elevator have a list of orders to take?
 
 func (sys *System) Command() (network.Message,bool){
-	fmt.Println("command")
 
 	var command network.Message;
 	//First stop the elevators that have reached their ordered floor - one at a time
@@ -182,7 +180,7 @@ func (sys *System) Command() (network.Message,bool){
 		if sys.UnhandledOrdersUp[floor]{
 			for elevIP := range sys.Elevators{
 				//Test if this covers stopped elevators that are supposed to go up afterwards
-				if sys.Elevators[elevIP].CurrentBehaviour == Idle || sys.Elevators[elevIP].Direction == 1{
+				if sys.Elevators[elevIP].CurrentBehaviour == Idle || sys.Elevators[elevIP].CurrentBehaviour == Moving && sys.Elevators[elevIP].Direction == 1{
 					sys.AssignOrder(elevIP,floor)
 					sys.UnhandledOrdersUp[floor] = false
 				}
@@ -191,7 +189,7 @@ func (sys *System) Command() (network.Message,bool){
 		if sys.UnhandledOrdersDown[floor]{
 			for elevIP := range sys.Elevators{
 				//Test if this covers stopped elevators that are supposed to go up afterwards
-				if sys.Elevators[elevIP].CurrentBehaviour == Idle || sys.Elevators[elevIP].Direction == -1{
+				if sys.Elevators[elevIP].CurrentBehaviour == Idle || sys.Elevators[elevIP].CurrentBehaviour == Moving && sys.Elevators[elevIP].Direction == -1{
 					sys.AssignOrder(elevIP,floor)
 					sys.UnhandledOrdersDown[floor] = false
 				}

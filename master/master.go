@@ -5,7 +5,6 @@ import (
 	"github.com/holwech/heislab/cl"
 	"github.com/holwech/heislab/orders"	
 	"time"
-	"fmt"
 )
 
 func Init(nw *network.Network, sendMaster chan network.Message) {
@@ -19,7 +18,7 @@ func Run(nw *network.Network, sendMaster chan network.Message){
 	messageChan, statusChan := nw.MChannels()
 	sys := orders.NewSystem()
 	isActive := true
-	ticker := time.NewTicker(200 * time.Millisecond)
+	ticker := time.NewTicker(50 * time.Millisecond)
 	sys.AddElevator("129.241.187.146")
 	for{
 	select{
@@ -53,13 +52,11 @@ func Run(nw *network.Network, sendMaster chan network.Message){
 			sys.RemoveElevator(connStatus.Sender)
 	}
 	case <-ticker.C:
-			fmt.Println(sys)
 			cmd, hasCommand := sys.Command()
 			cmd.Sender = network.LocalIP()
 			cmd.ID = network.CreateID(cl.Master)
 			if hasCommand && isActive{
 				sendMaster <- cmd
-				fmt.Println(cmd)
 			}
 		}
 	}
