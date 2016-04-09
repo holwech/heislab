@@ -106,11 +106,11 @@ func checkTimeout(commSentStatus chan ConnData, connStatus chan ConnData) {
 		case metadata := <- commSentStatus:
 			if metadata.Status == "OK" {
 				delete(messageLog, metadata.MsgID)
-				fmt.Printf("COMM: Message received, sending verification. ID: %s\n", metadata.MsgID)
+				//fmt.Printf("COMM: Message received, sending verification. ID: %s\n", metadata.MsgID)
 				connStatus <- metadata
 			}else{
 				messageLog[metadata.MsgID] = metadata
-				fmt.Printf("COMM: Metadata stored\n")
+				//fmt.Printf("COMM: Metadata stored\n")
 			}
 		case <- ticker:
 			currentTime := time.Now()
@@ -148,7 +148,7 @@ func broadcast(sendCh chan CommData, commSentStatus chan ConnData) {
 			printError("=== ERROR: Convertion of json failed in broadcast", err)
 		}
 		connection.Write(convMsg)
-		fmt.Printf("COMM: Message sent successfully!\n")
+		//fmt.Printf("COMM: Message sent successfully!\n")
 	}
 }
 

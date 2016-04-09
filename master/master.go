@@ -23,7 +23,7 @@ func Run(nw *network.Network, sendMaster chan network.Message){
 	sys.AddElevator("129.241.187.146")
 	for{
 	select{
-	case message := <- messageChan:	
+	case message := <- messageChan:
 		switch message.Response{
 		case cl.InnerOrder:
 			content := message.Content.(map[string]interface{})	
@@ -34,9 +34,14 @@ func Run(nw *network.Network, sendMaster chan network.Message){
 			floor := int(content["Floor"].(float64))
 			direction := int(content["Direction"].(float64))
 			sys.AddOuterOrder(floor,direction)
-		case cl.Floor:			
+		case cl.Floor:	
 			floor := int(message.Content.(float64))
-			sys.UpdateFloor(message.Sender,floor)
+			cmd, hasCommand := sys.FloorAction(message.Sender,floor)
+			cmd.Sender = network.LocalIP()
+			cmd.ID = network.CreateID(cl.Master)
+			if hasCommand && isActive{
+				sendMaster <- cmd
+			}
 		case cl.Startup:
 			ping := network.Message{network.LocalIP(),message.Sender,network.CreateID(cl.Master),cl.JoinMaster,""}
 			sendMaster <- ping
