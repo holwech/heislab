@@ -70,6 +70,8 @@ func sorter(nw *Network, commSend chan<- communication.CommData, commReceive <-c
 		case message := <- nw.slaveSend:
 			commMsg := *communication.ResolveMsg(message.Receiver, message.ID, message.Response, message.Content)
 			commSend <- commMsg
+			fmt.Println("asdf")
+
 		case message := <- nw.masterSend:
 			commMsg := *communication.ResolveMsg(message.Receiver, message.ID, message.Response, message.Content)
 			commSend <- commMsg

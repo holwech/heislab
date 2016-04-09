@@ -18,9 +18,8 @@ func Init(nw *network.Network, sendMaster chan network.Message) {
 func Run(nw *network.Network, sendMaster chan network.Message){
 	messageChan, statusChan := nw.MChannels()
 	sys := orders.NewSystem()
-	isActive := true
+	isActive := false
 	ticker := time.NewTicker(50 * time.Millisecond)
-	sys.AddElevator("129.241.187.146")
 	for{
 	select{
 	case message := <- messageChan:	
@@ -34,16 +33,18 @@ func Run(nw *network.Network, sendMaster chan network.Message){
 			floor := int(content["Floor"].(float64))
 			direction := int(content["Direction"].(float64))
 			sys.AddOuterOrder(floor,direction)
-		case cl.Floor:			
+		case cl.Floor:		
+
 			floor := int(message.Content.(float64))
 			sys.UpdateFloor(message.Sender,floor)
 		case cl.Startup:
+				fmt.Println("MASTE34R")
+
 			ping := network.Message{network.LocalIP(),message.Sender,network.CreateID(cl.Master),cl.JoinMaster,""}
-			sendMaster <- ping
+			if isActive{
+				sendMaster <- ping
+			}
 			sys.AddElevator(message.Sender)			
-		case cl.Ping:
-			ping := network.Message{network.LocalIP(),message.Sender,network.CreateID(cl.Master),cl.Ping,""}
-			sendMaster <- ping
 		case cl.SetMaster:
 			isActive = true
 		}
@@ -53,7 +54,6 @@ func Run(nw *network.Network, sendMaster chan network.Message){
 			sys.RemoveElevator(connStatus.Sender)
 	}
 	case <-ticker.C:
-			fmt.Println(sys)
 			cmd, hasCommand := sys.Command()
 			cmd.Sender = network.LocalIP()
 			cmd.ID = network.CreateID(cl.Master)
@@ -62,4 +62,6 @@ func Run(nw *network.Network, sendMaster chan network.Message){
 			}
 		}
 	}
+			fmt.Println(sys)
+
 }
