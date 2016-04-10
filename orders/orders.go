@@ -30,14 +30,22 @@ type Behaviour int
 const (
 	Idle Behaviour = iota
 	Moving
-	Stopped
+	DoorOpen
+)
+
+type Order int
+const (
+	None Order = iota
+	Inner
+	OuterUp
+	OuterDown
 )
 
 type ElevatorState struct{
 	Floor int //Previous active floor
 	Direction int
 	CurrentBehaviour Behaviour
-	Orders [4] bool
+	Orders [4] Order
 }
 
 type System struct{
@@ -72,7 +80,7 @@ func (sys *System) AddElevator(elevatorIP string) bool{
 	return !exists
 }
 
-//Should we move an elevators orders back to unhandled?
+//Deletes an elevator from the system and returns its outer orders to unhandled
 func (sys *System) RemoveElevator(elevatorIP string) bool{
 	_, exists := sys.Elevators[elevatorIP]
 	if exists{
@@ -86,7 +94,7 @@ func (sys *System) AssignOrder(elevatorIP string, floor int) bool{
 	elevator, exists := sys.Elevators[elevatorIP];
 
 	if exists{
-		if elevator.Orders[floor]{
+		if elevator.Orders[floor] != None{
 			alreadyAdded = true
 		}else{
 			elevator.Orders[floor] = true	
@@ -133,21 +141,12 @@ func (sys *System) FloorAction(elevatorIP string, floor int) (network.Message,bo
 
 	if elevator.Orders[floor]{
 		sys.RemoveOrder(elevatorIP,floor)
-			command.Receiver = elevatorIP
-			command.Response = cl.Stop
-			sys.SetBehaviour(elevatorIP, Idle)
-			for floor := 0; floor < 4; floor++{
-				if sys.Elevators[elevatorIP].Orders[floor]{
-					sys.SetBehaviour(elevatorIP,Stopped)
-				}
-			}
-			return command,true
+		command.Receiver = elevatorIP
+		command.Response = cl.Stop
+		sys.SetBehaviour(elevatorIP, DoorOpen)
+		return command,true
 	}
-
-	//First stop the elevators that have reached their ordered floor - one at a time
-	//Check if an elevator has more orders, and set state accordingly -- tbd
 	return command,false
-
 }
 
 func (sys *System) SetDirection(elevatorIP string, direction int){
@@ -163,10 +162,12 @@ func (sys *System) DoorClosedEvent(elevatorIP string){
 	elevator,exists := sys.Elevators[elevatorIP]
 	if !exists{
 		return
-	}
-	if elevator.CurrentBehaviour == Stopped{			
-		elevator.CurrentBehaviour = Moving
-		sys.Elevators[elevatorIP] = elevator	
+	} 
+	sys.SetBehaviour(elevatorIP, Idle)	
+	for floor := 0; floor < 4; floor++{
+		if elevator.Orders[floor]{
+			sys.SetBehaviour(elevatorIP,Moving)
+		}
 	}
 }
 
@@ -183,9 +184,8 @@ func (sys *System) SetBehaviour(elevatorIP string, behaviour Behaviour){
 //Prevent multiple elevators from going for the same order. 
 //Let each elevator have a list of orders to take?
 
-func (sys *System) Command() (network.Message,bool){
-	var command network.Message;
 
+func (sys *System) AssignOrders(){
 	//Dispatch unhandled orders to the connected elevators - all?
 	for floor := 0; floor < 4; floor++{
 		if sys.UnhandledOrdersUp[floor]{
@@ -215,16 +215,21 @@ func (sys *System) Command() (network.Message,bool){
 			}
 		}
 	}
-	//fmt.Println(sys)
-	//Send elevators to their orders
-	//Find a way to make sure to not send elevators that have just stopped with door open. Maybe include a state for door open
-	//and let the elevators report when they are ready?
-	for elevIP := range sys.Elevators{ // if elev.behaviour != door open?
-		if sys.Elevators[elevIP].CurrentBehaviour == Stopped{
+}
+
+/*Send elevators to their assigned orders
+Assumes that an elevator has only been assigned orders 
+That are on its current path, e.g. if an elevator is moving up
+it has no orders below it */
+func (sys *System) CommandElevators() (network.Message,bool){
+	var command network.Message;
+	for elevIP := range sys.Elevators{
+		elev := sys.Elevators[elevIP]
+		if elev.CurrentBehaviour == DoorOpen{
 			continue
 		}
 		for floor := 0; floor < 4; floor++{
-			if sys.Elevators[elevIP].Orders[floor]{
+			if elev.Orders[floor]{
 				command.Receiver = elevIP
 				if floor < sys.Elevators[elevIP].Floor{
 					command.Response = cl.Down 
@@ -238,6 +243,7 @@ func (sys *System) Command() (network.Message,bool){
 			}
 		}
 	}
+
 	return command,false
 }
 
