@@ -89,7 +89,7 @@ func (sys *System) RemoveElevator(elevatorIP string) bool{
 	return exists
 }
 
-func (sys *System) AssignOrder(elevatorIP string, floor int) bool{
+func (sys *System) AddInnerOrder(elevatorIP string, floor int) bool{
 	alreadyAdded := false
 	elevator, exists := sys.Elevators[elevatorIP];
 
@@ -97,17 +97,11 @@ func (sys *System) AssignOrder(elevatorIP string, floor int) bool{
 		if elevator.Orders[floor] != None{
 			alreadyAdded = true
 		}else{
-			elevator.Orders[floor] = true	
+			elevator.Orders[floor] = Inner	
 			sys.Elevators[elevatorIP] = elevator
 		}
 	}
 	return exists && !alreadyAdded
-}
-
-func (sys *System) RemoveOrder(elevatorIP string, floor int){
-	elevator := sys.Elevators[elevatorIP];
-	elevator.Orders[floor] = false
-	sys.Elevators[elevatorIP] = elevator
 }
 
 func (sys *System) AddOuterOrder(floor, direction int) bool{
@@ -128,6 +122,12 @@ func (sys *System) AddOuterOrder(floor, direction int) bool{
 	return !alreadyAdded
 }
 
+func (sys *System) RemoveOrder(elevatorIP string, floor int){
+	elevator := sys.Elevators[elevatorIP];
+	elevator.Orders[floor] = None
+	sys.Elevators[elevatorIP] = elevator
+}
+
 func (sys *System) FloorAction(elevatorIP string, floor int) (network.Message,bool){
 	var command network.Message;
 
@@ -139,7 +139,7 @@ func (sys *System) FloorAction(elevatorIP string, floor int) (network.Message,bo
 	elevator.Floor = floor
 	sys.Elevators[elevatorIP] = elevator
 
-	if elevator.Orders[floor]{
+	if elevator.Orders[floor] != None{
 		sys.RemoveOrder(elevatorIP,floor)
 		command.Receiver = elevatorIP
 		command.Response = cl.Stop
@@ -180,22 +180,19 @@ func (sys *System) SetBehaviour(elevatorIP string, behaviour Behaviour){
 	sys.Elevators[elevatorIP] = elevator
 }
 
-//Remove orders when they are finished
-//Prevent multiple elevators from going for the same order. 
-//Let each elevator have a list of orders to take?
-
-
+//Assign unhandled orders to available elevators
 func (sys *System) AssignOrders(){
-	//Dispatch unhandled orders to the connected elevators - all?
 	for floor := 0; floor < 4; floor++{
 		if sys.UnhandledOrdersUp[floor]{
 			for elevIP := range sys.Elevators{
+				elev := sys.Elevators[elevIP]
 				//Test if this covers stopped elevators that are supposed to go up afterwards
-				if sys.Elevators[elevIP].CurrentBehaviour == Idle || 
-						(sys.Elevators[elevIP].CurrentBehaviour == Moving && 
-						sys.Elevators[elevIP].Direction == 1 &&
-						sys.Elevators[elevIP].Floor < floor){
-					sys.AssignOrder(elevIP,floor)
+				if elev.CurrentBehaviour == Idle || 
+						(elev.CurrentBehaviour == Moving && 
+						elev.Direction == 1 &&
+						elev.Floor < floor){
+					elev.Orders[floor] = OuterUp
+					sys.Elevators[elevatorIP] = elev
 					sys.UnhandledOrdersUp[floor] = false
 					break
 				}
@@ -203,12 +200,14 @@ func (sys *System) AssignOrders(){
 		}
 		if sys.UnhandledOrdersDown[floor]{
 			for elevIP := range sys.Elevators{
+				elev := sys.Elevators[elevIP]
 				//Test if this covers stopped elevators that are supposed to go up afterwards
-				if sys.Elevators[elevIP].CurrentBehaviour == Idle || 
-						(sys.Elevators[elevIP].CurrentBehaviour == Moving && 
-						sys.Elevators[elevIP].Direction == -1 &&
-						sys.Elevators[elevIP].Floor > floor){
-					sys.AssignOrder(elevIP,floor)
+				if elev.CurrentBehaviour == Idle || 
+						(elev.CurrentBehaviour == Moving && 
+						elev.Direction == -1 &&
+						elev.Floor > floor){
+					elev.Orders[floor] = OuterDown
+					sys.Elevators[elevatorIP] = elev
 					sys.UnhandledOrdersDown[floor] = false
 					break
 				}

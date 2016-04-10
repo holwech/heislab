@@ -24,14 +24,12 @@ func Run(nw *network.Network, sendMaster chan network.Message){
 			case cl.InnerOrder:
 				content := message.Content.(map[string]interface{})	
 				floor := int(content["Floor"].(float64))
-				sys.AssignOrder(message.Sender,floor)
-				systemChange = true			
+				systemChange = systemChange || sys.AddInnerOrder(message.Sender,floor)
 			case cl.OuterOrder:
 				content := message.Content.(map[string]interface{})	
 				floor := int(content["Floor"].(float64))
 				direction := int(content["Direction"].(float64))
-				sys.AddOuterOrder(floor,direction)
-				systemChange = true
+				systemChange = systemChange || sys.AddOuterOrder(floor,direction)
 			case cl.Floor:		
 				floor := int(message.Content.(float64))
 				cmd, hasCommand := sys.FloorAction(message.Sender,floor)
@@ -40,7 +38,7 @@ func Run(nw *network.Network, sendMaster chan network.Message){
 				if hasCommand && isActive{
 					sendMaster <- cmd
 				}
-				systemChange = true
+				systemChange = systemChange || hasCommand
 			case cl.DoorClosed:
 				sys.DoorClosedEvent(message.Sender)
 				systemChange = true
