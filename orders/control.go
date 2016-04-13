@@ -20,6 +20,8 @@ func (sys *System) FloorAction(elevatorIP string, floor int) (network.Message, b
 		sys.RemoveOrder(elevatorIP, floor)
 		command.Receiver = elevatorIP
 		command.Response = cl.Stop
+		//Might want to rewrite this, direction is used for light setting in master
+		command.Content = elevator.Direction
 		sys.SetBehaviour(elevatorIP, DoorOpen)
 		return command, true
 	}

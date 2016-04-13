@@ -48,6 +48,17 @@ func Run(nw *network.Network, sendMaster chan network.Message) {
 				cmd.ID = network.CreateID(cl.Master)
 				if hasCommand && isActive {
 					sendMaster <- cmd
+					//Should rewrite this- -- was for testing
+					lightCmd := network.Message{network.LocalIP(), message.Sender, network.CreateID(cl.Master), cl.LightOffInner, floor}
+					sendMaster <- lightCmd
+					var lightDirection string
+					if cmd.Content == 1 {
+						lightDirection = cl.LightOffOuterDown
+					} else {
+						lightDirection = cl.LightOnOuterDown
+					}
+					lightCmd2 := network.Message{network.LocalIP(), message.Sender, network.CreateID(cl.Master), lightDirection, floor}
+					sendMaster <- lightCmd2
 				}
 				systemChange = systemChange || hasCommand
 			case cl.DoorClosed:
