@@ -120,7 +120,6 @@ func (sys *System) AddOuterOrder(floor, direction int) bool {
 		} else {
 			sys.UnhandledOrdersDown[floor] = true
 		}
-
 		cmdLight := network.Message{"", cl.All, "", cl.LightOnOuterDown, floor}
 		sys.Commands <- cmdLight
 	} else if direction == 1 {

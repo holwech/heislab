@@ -113,9 +113,9 @@ func Run() {
 			case cl.LightOffOuterUp:
 				driver.SetOuterPanelLamp(1, int(message.Content.(float64)), 0)
 			case cl.LightOnOuterDown:
-				driver.SetOuterPanelLamp(0, int(message.Content.(float64)), 1)
+				driver.SetOuterPanelLamp(-1, int(message.Content.(float64)), 1)
 			case cl.LightOffOuterDown:
-				driver.SetOuterPanelLamp(0, int(message.Content.(float64)), 0)
+				driver.SetOuterPanelLamp(-1, int(message.Content.(float64)), 0)
 			}
 		case <-startupTimer.C:
 			slaveSend <- network.Message{
