@@ -33,6 +33,7 @@ const (
 	Idle Behaviour = iota
 	Moving
 	DoorOpen
+	WaitingNextOrder
 )
 
 type Order int
@@ -55,10 +56,12 @@ type System struct {
 	Elevators           map[string]ElevatorState
 	UnhandledOrdersUp   [4]bool
 	UnhandledOrdersDown [4]bool
+	Commands            chan network.Message
 }
 
 func NewSystem() *System {
 	var s System
+	s.Commands = make(chan network.Message, 10)
 	s.Elevators = make(map[string]ElevatorState)
 	return &s
 }
@@ -103,6 +106,8 @@ func (sys *System) AddInnerOrder(elevatorIP string, floor int) bool {
 			elevator.Orders[floor] = Inner
 			sys.Elevators[elevatorIP] = elevator
 		}
+		cmdLight := network.Message{"", elevatorIP, "", cl.LightOnInner, floor}
+		sys.Commands <- cmdLight
 	}
 	return exists && !alreadyAdded
 }
@@ -115,12 +120,17 @@ func (sys *System) AddOuterOrder(floor, direction int) bool {
 		} else {
 			sys.UnhandledOrdersDown[floor] = true
 		}
+
+		cmdLight := network.Message{"", cl.All, "", cl.LightOnOuterDown, floor}
+		sys.Commands <- cmdLight
 	} else if direction == 1 {
 		if sys.UnhandledOrdersUp[floor] {
 			alreadyAdded = true
 		} else {
 			sys.UnhandledOrdersUp[floor] = true
 		}
+		cmdLight := network.Message{"", cl.All, "", cl.LightOnOuterUp, floor}
+		sys.Commands <- cmdLight
 	}
 	return !alreadyAdded
 }
@@ -131,7 +141,7 @@ func (sys *System) RemoveOrder(elevatorIP string, floor int) {
 	sys.Elevators[elevatorIP] = elevator
 }
 
-func (sys *System) DoorClosedEvent(elevatorIP string) {
+func (sys *System) NotifyDoorClosed(elevatorIP string) {
 	elevator, exists := sys.Elevators[elevatorIP]
 	if !exists {
 		return
@@ -139,7 +149,7 @@ func (sys *System) DoorClosedEvent(elevatorIP string) {
 	sys.SetBehaviour(elevatorIP, Idle)
 	for floor := 0; floor < 4; floor++ {
 		if elevator.Orders[floor] != None {
-			sys.SetBehaviour(elevatorIP, Moving)
+			sys.SetBehaviour(elevatorIP, WaitingNextOrder)
 		}
 	}
 }
