@@ -3,10 +3,11 @@ package network
 import (
 	"github.com/holwech/heislab/communication"
 	"github.com/satori/go.uuid"
+	"github.com/holwech/heislab/cl"
 	"fmt"
 )
 
-const info = true
+const info = false
 
 type Message struct {
 	Sender, Receiver, ID, Response string
@@ -14,7 +15,7 @@ type Message struct {
 }
 
 type Network struct {
-	slaveReceive, slaveStatus, slaveSend, masterReceive, masterStatus, masterSend chan Message
+	slaveReceive, slaveSend, masterReceive, masterSend chan Message
 	LocalIP string
 }
 
@@ -48,56 +49,49 @@ func LocalIP() string {
 
 func (nw *Network) Init(slaveSend chan Message, masterSend chan Message) {
 	nw.slaveReceive = make(chan Message)
-	nw.slaveStatus = make(chan Message)
 	nw.slaveSend = slaveSend
 	nw.masterReceive = make(chan Message)
-	nw.masterStatus = make(chan Message)
 	nw.masterSend = masterSend
 }
 
-func (nw *Network) SChannels() (<- chan Message, <- chan Message){
-	return nw.slaveReceive, nw.slaveStatus
+func (nw *Network) SChannels() (<- chan Message){
+	return nw.slaveReceive
 }
 
 
-func (nw *Network) MChannels() (<- chan Message, <- chan Message){
-	return nw.masterReceive, nw.masterStatus
+func (nw *Network) MChannels() (<- chan Message){
+	return nw.masterReceive
 }
 
 
 func Run(nw *Network) {
 	commSend := make(chan communication.CommData)
-	commReceive, commStatus := communication.Run(commSend)
+	commReceive := communication.Run(commSend)
 	nw.LocalIP = communication.GetLocalIP()
-	go sorter(nw, commSend, commReceive, commStatus)
+	go sorter(nw, commSend, commReceive)
 }
 
 
-func sorter(nw *Network, commSend chan<- communication.CommData, commReceive <-chan communication.CommData, commStatus <-chan communication.ConnData) {
+func sorter(nw *Network, commSend chan<- communication.CommData, commReceive <-chan communication.CommData) {
 	for{
 		select{
 		case message := <- nw.slaveSend:
-			commMsg := *communication.ResolveMsg(message.Receiver, message.ID, message.Response, message.Content)
+			commMsg := *communication.ResolveMsg(nw.LocalIP, message.Receiver, message.ID, message.Response, message.Content)
 			commSend <- commMsg
 		case message := <- nw.masterSend:
-			commMsg := *communication.ResolveMsg(message.Receiver, message.ID, message.Response, message.Content)
+			commMsg := *communication.ResolveMsg(nw.LocalIP, message.Receiver, message.ID, message.Response, message.Content)
 			commSend <- commMsg
 		case message := <- commReceive:
 			convMsg := commToMsg(&message)
-			if (convMsg.Receiver == nw.LocalIP || convMsg.Receiver == "ALL") {
+			if	((convMsg.Response != cl.Connection) && (convMsg.ID[0] == 'M')) ||
+					((convMsg.Response == cl.Connection) && (convMsg.ID[0] == 'S')) {
 				nw.slaveReceive <- convMsg
 				printInfo("Slave received message", &convMsg)
 			}
-			if convMsg.ID[0] != 'M' {
+			if ((convMsg.ID[0] == 'S') && (convMsg.Response != cl.Connection)) ||
+				 ((convMsg.ID[0] == 'M') && (convMsg.Response == cl.Connection)){
 				nw.masterReceive <- convMsg
 				printInfo("Master received message", &convMsg)
-			}
-		case status := <- commStatus:
-			convStatus := connToMsg(&status)
-			if convStatus.ID[0] == 'S'{
-				nw.slaveStatus <- convStatus
-			} else{
-				nw.masterStatus <- convStatus
 			}
 		}
 	}
@@ -108,19 +102,9 @@ func commToMsg(message *communication.CommData) (Message){
 		Sender: message.SenderIP,
 		Receiver: message.ReceiverIP,
 		ID: message.MsgID,
-		Response: message.DataType,
-		Content: message.DataValue,
+		Response: message.Response,
+		Content: message.Content,
 	}
 	return newMsg
 }
 
-func connToMsg(message *communication.ConnData) (Message) {
-	newMsg := Message{
-		Sender: message.SenderIP,
-		Receiver: "Unknown (For now anyway, i think? Maybe not)",
-		ID: message.MsgID,
-		Response: "Connection",
-		Content: message.Status,
-	}
-	return newMsg
-}

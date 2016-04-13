@@ -8,8 +8,7 @@ import (
 
 func TestSend(t *testing.T) {
 	sendCh := make(chan CommData)
-	receiveCh, connStatus := Run(sendCh)
-	go RunPrintConn(connStatus)
+	receiveCh := Run(sendCh)
 	go RunPrintMsg(receiveCh)
 	time.Sleep(1 * time.Second)
 	count := 0
@@ -25,8 +24,7 @@ func TestSend(t *testing.T) {
 
 func TestListen(t *testing.T) {
 	sendCh := make(chan CommData)
-	receiveCh, connStatus := Run(sendCh)
-	go RunPrintConn(connStatus)
+	receiveCh := Run(sendCh)
 	go RunPrintMsg(receiveCh)
 	time.Sleep(1 * time.Second)
 	count := 0
@@ -39,11 +37,6 @@ func TestListen(t *testing.T) {
 func RunPrintMsg(receiveCh <-chan CommData) {
 	for{
 		PrintMessage(<- receiveCh)
-	}
-}
-func RunPrintConn(connStatus <-chan ConnData) {
-	for{
-		PrintConnData(<- connStatus)
 	}
 }
 

@@ -2,7 +2,6 @@ package main
 
 import (
 	"time"
-
 	"github.com/holwech/heislab/cl"
 	"github.com/holwech/heislab/driver"
 	"github.com/holwech/heislab/master"
@@ -47,8 +46,8 @@ func Run() {
 	masterID := cl.Unknown
 	startupTimer := time.NewTimer(50 * time.Millisecond)
 	slaveSend <- network.Message{
-		Sender:   network.LocalIP(),
-		Receiver: network.LocalIP(),
+		Sender:   nw.LocalIP,
+		Receiver: nw.LocalIP,
 		ID:       network.CreateID("Slave"),
 		Response: cl.Startup,
 		Content:  time.Now(),
@@ -58,7 +57,7 @@ func Run() {
 		case innerOrder := <-innerChan:
 			driver.SetInnerPanelLamp(innerOrder.Floor, 1)
 			message := network.Message{
-				Sender:   network.LocalIP(),
+				Sender:   nw.LocalIP,
 				Receiver: masterID,
 				ID:       network.CreateID("Slave"),
 				Response: cl.InnerOrder,
@@ -67,7 +66,7 @@ func Run() {
 			slaveSend <- message
 		case outerOrder := <-outerChan:
 			message := network.Message{
-				Sender:   network.LocalIP(),
+				Sender:   nw.LocalIP,
 				Receiver: masterID,
 				ID:       network.CreateID("Slave"),
 				Response: cl.OuterOrder,
@@ -76,7 +75,7 @@ func Run() {
 			slaveSend <- message
 		case newFloor := <-floorChan:
 			message := network.Message{
-				Sender:   network.LocalIP(),
+				Sender:   nw.LocalIP,
 				Receiver: masterID,
 				ID:       network.CreateID("Slave"),
 				Response: cl.Floor,
@@ -86,7 +85,7 @@ func Run() {
 		case <-doorTimer.C:
 			driver.SetDoorLamp(0)
 			slaveSend <- network.Message{
-				Sender:   network.LocalIP(),
+				Sender:   nw.LocalIP,
 				Receiver: masterID,
 				ID:       network.CreateID("Slave"),
 				Response: cl.DoorClosed,
@@ -120,15 +119,13 @@ func Run() {
 			}
 		case <-startupTimer.C:
 			slaveSend <- network.Message{
-				Sender:   network.LocalIP(),
-				Receiver: network.LocalIP(),
+				Sender:   nw.LocalIP,
+				Receiver: nw.LocalIP,
 				ID:       network.CreateID("Slave"),
 				Response: cl.SetMaster,
 				Content:  time.Now(),
 			}
 			masterID = nw.LocalIP
-		case <-slaveStatus:
-			break
 		}
 	}
 }

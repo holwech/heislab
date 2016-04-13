@@ -27,7 +27,6 @@ var Ping string = "PING"
 // Commands from slave
 var SetMaster string = "SETMASTER"
 var Startup string = "STARTUP"
-var Timeout string = "TIMEOUT"
 var Unknown string = "UNKNOWN"
 
 // Commands from master
@@ -36,3 +35,12 @@ var Backup string = "BACKUP"
 
 // Sender-address
 var All string = "ALL"
+
+// Communication package
+// Response
+var Connection string = "CONNECTION"
+// Content
+var OK string = "OK"
+var Timeout string = "TIMEOUT"
+var Sent string = "SENT"
+var Failed string = "FAILED"

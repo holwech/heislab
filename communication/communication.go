@@ -6,29 +6,24 @@ import (
 	"os"
 	"encoding/json"
 	"time"
+	"github.com/holwech/heislab/cl"
 )
 
-const com_id = "2323" //Identifier for all elevators on the system
+const com_id = "2323" //Key for all elevators on the system
 const port = ":22212"
 const broadcast_addr = "255.255.255.255"
-type InnerOrder struct{
-	Floor int `json:"Floor"`
-}
-type OuterOrder struct{
-	Floor int `json:"Floor"`
-	Direction int `json:"Direction"`
-}
-// DataValue should ONLY be int og string
+
+// Content should ONLY be int og string
 type CommData struct {
-	Identifier string
+	Key string
 	SenderIP	string
 	ReceiverIP	string
 	MsgID string
-	DataType string
-	DataValue interface{}
+	Response string
+	Content interface{}
 }
 
-type ConnData struct {
+type Timestamp struct {
 	SenderIP string
 	MsgID string
 	SendTime time.Time
@@ -41,86 +36,97 @@ func printError(errMsg string, err error) {
 	fmt.Println()
 }
 
-func Run(sendCh chan CommData) (<- chan CommData, <- chan ConnData) {
+func Run(sendCh chan CommData) (<- chan CommData) {
 	commReceive := make(chan CommData)
-	commSentStatus := make(chan ConnData)
+	connStatus := make(chan Timestamp)
 	commSend := make(chan CommData)
-	connStatus := make(chan ConnData)
 	receivedMsg := make(chan CommData)
 	go listen(commReceive)
-	go broadcast(commSend, commSentStatus)
-	go checkTimeout(commSentStatus, connStatus)
-	go msgSorter(commReceive, receivedMsg, commSentStatus, commSend, sendCh)
-	return receivedMsg, connStatus
+	go broadcast(commSend, connStatus)
+	go checkTimeout(connStatus, receivedMsg)
+	go msgSorter(commReceive, receivedMsg, connStatus, commSend, sendCh)
+	return receivedMsg
 }
 
-func msgSorter(commReceive <-chan CommData, receivedMsg chan<- CommData, commSentStatus chan<- ConnData, commSend chan<- CommData, sendCh <-chan CommData) {
+func msgSorter(commReceive <-chan CommData, receivedMsg chan<- CommData, connStatus chan<- Timestamp, commSend chan<- CommData, sendCh <-chan CommData) {
 	for{
 		select{
 		// When messages are received
 		case message := <- commReceive:
 			// If message is a receive-confirmation, push to status-channel
-			if message.DataType == "OK"{
+			if message.Response == cl.Connection{
 				// Filters out status-messages that are not relevant for receiver
-				if message.SenderIP == GetLocalIP() {
-					response := ConnData{
+				if message.ReceiverIP == GetLocalIP() {
+					received := Timestamp{
 						SenderIP: message.SenderIP,
 						MsgID: message.MsgID,
 						SendTime: time.Now(),
-						Status: "OK",
+						Status: cl.OK,
 					}
-					commSentStatus <- response
+					connStatus <- received
 				}
 			// If message is a normal message, then send verification 
 			}else{
-				response := CommData{
-					Identifier: com_id,
-					SenderIP: message.SenderIP, 
-					ReceiverIP: GetLocalIP(),
+				ok := CommData{
+					Key: com_id,
+					SenderIP: message.ReceiverIP,
+					ReceiverIP: message.SenderIP,
 					MsgID: message.MsgID,
-					DataType: "OK",
-					DataValue: time.Now(),
+					Response: cl.Connection,
+					Content: cl.OK,
 				}
 				receivedMsg <- message
-				commSend <- response
+				commSend <- ok
 			}
 		// When messages are sent, set time-stamp
 		case message := <- sendCh:
 			commSend <- message
-			timeSent := ConnData{
+			timeSent := Timestamp{
 				SenderIP: message.SenderIP,
 				MsgID: message.MsgID,
 				SendTime: time.Now(),
-				Status: "Sent",
+				Status: cl.Sent,
 			}
-			commSentStatus <- timeSent
+			connStatus <- timeSent
 		}
 	}
 }
 
-func checkTimeout(commSentStatus chan ConnData, connStatus chan ConnData) {
-	messageLog := make(map[string]ConnData)
+func checkTimeout(connStatus chan Timestamp, receivedMsg chan CommData) {
+	messageLog := make(map[string]Timestamp)
 	ticker := time.NewTicker(50 * time.Millisecond).C
 	for{
 		select{
-		case metadata := <- commSentStatus:
-			if metadata.Status == "OK" {
+		case metadata := <- connStatus:
+			if metadata.Status == cl.OK {
 				delete(messageLog, metadata.MsgID)
-				//fmt.Printf("COMM: Message received, sending verification. ID: %s\n", metadata.MsgID)
-				connStatus <- metadata
+				status := CommData{
+					Key: com_id,
+					SenderIP: metadata.SenderIP,
+					ReceiverIP: GetLocalIP(),
+					MsgID: metadata.MsgID,
+					Response: cl.Connection,
+					Content: cl.OK,
+				}
+				receivedMsg <- status
 			}else{
 				messageLog[metadata.MsgID] = metadata
-				//fmt.Printf("COMM: Metadata stored\n")
 			}
 		case <- ticker:
 			currentTime := time.Now()
 			for msgID, metadata := range messageLog {
 				timeDiff := currentTime.Sub(metadata.SendTime)
 				if timeDiff.Seconds() > 5 {
-					sendingFailed := metadata
-					sendingFailed.Status = "Failed"
 					delete(messageLog, msgID)
-					connStatus <- sendingFailed
+					status := CommData{
+						Key: com_id,
+						SenderIP: metadata.SenderIP,
+						ReceiverIP: GetLocalIP(),
+						MsgID: metadata.MsgID,
+						Response: cl.Connection,
+						Content: cl.Failed,
+					}
+					receivedMsg <- status
 				}
 			}
 		}
@@ -129,7 +135,7 @@ func checkTimeout(commSentStatus chan ConnData, connStatus chan ConnData) {
 
 
 
-func broadcast(sendCh chan CommData, commSentStatus chan ConnData) {
+func broadcast(commSend chan CommData, connStatus chan Timestamp) {
 	fmt.Printf("COMM: Broadcasting message to: %s%s\n", broadcast_addr, port)
 	broadcastAddress, err := net.ResolveUDPAddr("udp", broadcast_addr + port)
 	if err != nil {
@@ -142,14 +148,12 @@ func broadcast(sendCh chan CommData, commSentStatus chan ConnData) {
 	}
 	defer connection.Close()
 	for{
-		message := <- sendCh
+		message := <- commSend
 		convMsg, err := json.Marshal(message)
 		if err != nil {
 			printError("=== ERROR: Convertion of json failed in broadcast", err)
 		}
 		connection.Write(convMsg)
-
-		//fmt.Printf("COMM: Message sent successfully!\n")
 	}
 }
 
@@ -177,12 +181,11 @@ func listen(commReceive chan CommData) {
 			printError("=== ERROR: Unmarshal failed in listen", err)
 		}
 		//Filters out all messages not relevant for the system
-		if (message.Identifier == com_id) {
-			fmt.Printf("COMM: Message received from: %s\n", message.SenderIP)
+		if (message.Key == com_id) {
 			commReceive <- message
 		} else {
 			fmt.Printf("COMM: Data received\n")
-			fmt.Printf("COMM: Identifier does not match\n")
+			fmt.Printf("COMM: Key does not match\n")
 			fmt.Printf("COMM: %s\n\n", string(buffer))
 		}
 	}
@@ -190,16 +193,16 @@ func listen(commReceive chan CommData) {
 
 func PrintMessage(data CommData) {
 	fmt.Printf("=== Data received ===\n")
-	fmt.Printf("Identifier: %s\n", data.Identifier)
+	fmt.Printf("Key: %s\n", data.Key)
 	fmt.Printf("SenderIP: %s\n", data.SenderIP)
 	fmt.Printf("ReceiverIP: %s\n", data.ReceiverIP)
 	fmt.Printf("Message ID: %s\n", data.MsgID)
 	fmt.Printf("= Data = \n")
-	fmt.Printf("Data type: %s\n", data.DataType)
-	fmt.Printf("DataValue: %s\n", data.DataValue)
+	fmt.Printf("Data type: %s\n", data.Response)
+	fmt.Printf("Content: %v\n", data.Content)
 }
 
-func PrintConnData(data ConnData) {
+func PrintTimestamp(data Timestamp) {
 	fmt.Printf("=== Connection data ===\n")
 	fmt.Printf("SenderIP: %s\n", data.SenderIP)
 	fmt.Printf("Message ID: %s\n", data.MsgID)
@@ -224,44 +227,14 @@ func GetLocalIP() (string) {
 	return localIP
 }
 
-func ResolveMsg(receiverIP string, msgID string, dataType string, dataValue interface{}) (commData *CommData) {
+func ResolveMsg(senderIP string, receiverIP string, msgID string, response string, content interface{}) (commData *CommData) {
 	message := CommData{
-		Identifier: com_id,
-		SenderIP: GetLocalIP(),
+		Key: com_id,
+		SenderIP: senderIP,
 		ReceiverIP: receiverIP,
 		MsgID: msgID,
-		DataType: dataType,
-		DataValue: dataValue,
+		Response: response,
+		Content: content,
 	}
 	return &message
 }
-
-// func SendConsoleMsg(config *config, sendUDP chan UDPData) {
-// 	time.Sleep(1*time.Second)
-// 	fmt.Println("=== Send from console ===")
-// 	terminate := "y\n"
-// 	for terminate == "y\n" {
-// 		reader := bufio.NewReader(os.Stdin)
-// 		message := &UDPData{
-// 			Identifier: com_id,
-// 			SenderIP: config.SenderIP,
-// 			ReceiverIP: config.ReceiverIP,
-// 			Data: map[string]string{},
-// 		}
-// 		for terminate == "y\n" {
-// 			fmt.Print("Enter key: ")
-// 			key, _ := reader.ReadString('\n')
-// 			fmt.Print("Enter value: ")
-// 			value, _ := reader.ReadString('\n')
-// 			message.Data[key] = value
-// 			fmt.Print("Add more data values? (y/n): ")
-// 			terminate, _ = reader.ReadString('\n')
-// 			fmt.Println(terminate)
-// 		}
-// 		sendUDP <- *message
-// 		time.Sleep(1*time.Second)
-// 		fmt.Print("Send another message? (y/n): ")
-// 		terminate, _ = reader.ReadString('\n')
-// 	}
-// 	fmt.Println("=== Stopping send from console ===")
-// }
