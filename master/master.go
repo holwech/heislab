@@ -55,7 +55,7 @@ func Run(nw *network.Network, sendMaster chan network.Message) {
 			}
 			if systemChange {
 				sys.AssignOrders()
-				cmd, hasCommand := sys.CommandElevators()
+				cmd, hasCommand := sys.GetNextCommand()
 				cmd.Sender = network.LocalIP()
 				cmd.ID = network.CreateID(cl.Master)
 				if hasCommand && isActive {
