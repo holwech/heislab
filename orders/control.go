@@ -5,25 +5,39 @@ import (
 	"github.com/holwech/heislab/network"
 )
 
-func (sys *System) FloorAction(elevatorIP string, floor int) (network.Message, bool) {
-	var command network.Message
+func (sys *System) NotifyFloor(elevatorIP string, floor int) {
 
 	elevator, exists := sys.Elevators[elevatorIP]
 	if !exists || floor == -1 {
-		return command, false
+		return
 	}
 	//Update current floor and stop if order in floor
 	elevator.Floor = floor
 	sys.Elevators[elevatorIP] = elevator
 
 	if elevator.Orders[floor] != None {
-		sys.RemoveOrder(elevatorIP, floor)
+		var command network.Message
+		var commandLight network.Message
+
 		command.Receiver = elevatorIP
 		command.Response = cl.Stop
+		sys.Commands <- command
+
+		commandLight.Receiver = elevatorIP
+		if elevator.Orders[floor] == OuterDown {
+			commandLight.Response = cl.LightOffOuterDown
+		} else if elevator.Orders[floor] == OuterUp {
+			commandLight.Response = cl.LightOffOuterUp
+		}
+		commandLight.Content = floor
+		sys.Commands <- commandLight
+		commandLight.Response = cl.LightOffInner
+		sys.Commands <- commandLight
+
+		sys.RemoveOrder(elevatorIP, floor)
 		sys.SetBehaviour(elevatorIP, DoorOpen)
-		return command, true
+
 	}
-	return command, false
 }
 
 func (sys *System) AssignOrders() {
@@ -63,7 +77,7 @@ func (sys *System) AssignOrders() {
 Assumes that an elevator has only been assigned orders
 That are on its current path, e.g. if an elevator is moving up
 it has no orders below it */
-func (sys *System) GetNextCommand() (network.Message, bool) {
+func (sys *System) CheckNewCommand() {
 	var command network.Message
 	for elevIP := range sys.Elevators {
 		elev := sys.Elevators[elevIP]
@@ -71,7 +85,8 @@ func (sys *System) GetNextCommand() (network.Message, bool) {
 			continue
 		}
 		for floor := 0; floor < 4; floor++ {
-			if elev.Orders[floor] != None {
+			if elev.Orders[floor] != None &&
+				(elev.CurrentBehaviour == Idle || elev.CurrentBehaviour == WaitingNextOrder) {
 				command.Receiver = elevIP
 				if floor < elev.Floor {
 					command.Response = cl.Down
@@ -86,11 +101,15 @@ func (sys *System) GetNextCommand() (network.Message, bool) {
 					sys.RemoveOrder(elevIP, floor)
 					command.Response = cl.Stop
 					sys.SetBehaviour(elevIP, DoorOpen)
+					cmdLight := network.Message{"", cl.All, "", cl.LightOffInner, floor}
+					sys.Commands <- cmdLight
+					cmdLight.Response = cl.LightOffOuterUp
+					sys.Commands <- cmdLight
+					cmdLight.Response = cl.LightOnOuterDown
+					sys.Commands <- cmdLight
 				}
-				return command, true
+				sys.Commands <- command
 			}
 		}
 	}
-
-	return command, false
 }
