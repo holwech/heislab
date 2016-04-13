@@ -15,7 +15,7 @@ func Init(nw *network.Network, sendMaster chan network.Message) {
 //Listen to inputs from slaves and send commands back
 //Will the behaviour and order list be the same on all masters running?
 func Run(nw *network.Network, sendMaster chan network.Message) {
-	inputChan, _ := nw.MChannels()
+	inputChan := nw.MChannels()
 	sys := orders.NewSystem()
 	isActive := false
 	for {

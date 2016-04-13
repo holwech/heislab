@@ -39,7 +39,7 @@ func Run() {
 	slaveSend := make(chan network.Message)
 	masterSend := make(chan network.Message)
 	nw := InitNetwork(slaveSend, masterSend)
-	slaveReceive, slaveStatus := nw.SChannels()
+	slaveReceive := nw.SChannels()
 	go master.Run(nw, masterSend)
 	doorTimer := time.NewTimer(3 * time.Second)
 	doorTimer.Stop()
@@ -55,6 +55,7 @@ func Run() {
 	for {
 		select {
 		case innerOrder := <-innerChan:
+			driver.SetInnerPanelLamp(innerOrder.Floor, 1)
 			message := network.Message{
 				Sender:   nw.LocalIP,
 				Receiver: masterID,
@@ -110,11 +111,11 @@ func Run() {
 			case cl.LightOnOuterUp:
 				driver.SetOuterPanelLamp(1, int(message.Content.(float64)), 1)
 			case cl.LightOffOuterUp:
-				driver.SetOuterPanelLamp(1, int(message.Content.(float64)), 0)
+				driver.SetOuterPanelLamp(0, int(message.Content.(float64)), 0)
 			case cl.LightOnOuterDown:
-				driver.SetOuterPanelLamp(-1, int(message.Content.(float64)), 1)
+				driver.SetOuterPanelLamp(1, int(message.Content.(float64)), 1)
 			case cl.LightOffOuterDown:
-				driver.SetOuterPanelLamp(-1, int(message.Content.(float64)), 0)
+				driver.SetOuterPanelLamp(0, int(message.Content.(float64)), 0)
 			}
 		case <-startupTimer.C:
 			slaveSend <- network.Message{
