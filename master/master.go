@@ -27,11 +27,20 @@ func Run(nw *network.Network, sendMaster chan network.Message) {
 				content := message.Content.(map[string]interface{})
 				floor := int(content["Floor"].(float64))
 				systemChange = systemChange || sys.AddInnerOrder(message.Sender, floor)
+				lightCmd := network.Message{network.LocalIP(), message.Sender, network.CreateID(cl.Master), cl.LightOnInner, floor}
+				sendMaster <- lightCmd
 			case cl.OuterOrder:
 				content := message.Content.(map[string]interface{})
 				floor := int(content["Floor"].(float64))
 				direction := int(content["Direction"].(float64))
 				systemChange = systemChange || sys.AddOuterOrder(floor, direction)
+				if direction == 1 {
+					lightCmd := network.Message{network.LocalIP(), cl.All, network.CreateID(cl.Master), cl.LightOnOuterUp, floor}
+					sendMaster <- lightCmd
+				} else {
+					lightCmd := network.Message{network.LocalIP(), cl.All, network.CreateID(cl.Master), cl.LightOnOuterDown, floor}
+					sendMaster <- lightCmd
+				}
 			case cl.Floor:
 				floor := int(message.Content.(float64))
 				cmd, hasCommand := sys.FloorAction(message.Sender, floor)
