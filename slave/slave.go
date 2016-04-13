@@ -2,6 +2,7 @@ package main
 
 import (
 	"time"
+
 	"github.com/holwech/heislab/cl"
 	"github.com/holwech/heislab/driver"
 	"github.com/holwech/heislab/master"
@@ -46,38 +47,33 @@ func Run() {
 	masterID := cl.Unknown
 	startupTimer := time.NewTimer(50 * time.Millisecond)
 	slaveSend <- network.Message{
-		Sender:   nw.LocalIP,
 		Receiver: nw.LocalIP,
-		ID:       network.CreateID("Slave"),
+		ID:       network.CreateID(cl.Slave),
 		Response: cl.Startup,
 		Content:  time.Now(),
 	}
 	for {
 		select {
 		case innerOrder := <-innerChan:
-			driver.SetInnerPanelLamp(innerOrder.Floor, 1)
 			message := network.Message{
-				Sender:   nw.LocalIP,
 				Receiver: masterID,
-				ID:       network.CreateID("Slave"),
+				ID:       network.CreateID(cl.Slave),
 				Response: cl.InnerOrder,
 				Content:  innerOrder,
 			}
 			slaveSend <- message
 		case outerOrder := <-outerChan:
 			message := network.Message{
-				Sender:   nw.LocalIP,
 				Receiver: masterID,
-				ID:       network.CreateID("Slave"),
+				ID:       network.CreateID(cl.Slave),
 				Response: cl.OuterOrder,
 				Content:  outerOrder,
 			}
 			slaveSend <- message
 		case newFloor := <-floorChan:
 			message := network.Message{
-				Sender:   nw.LocalIP,
 				Receiver: masterID,
-				ID:       network.CreateID("Slave"),
+				ID:       network.CreateID(cl.Slave),
 				Response: cl.Floor,
 				Content:  newFloor,
 			}
@@ -85,9 +81,8 @@ func Run() {
 		case <-doorTimer.C:
 			driver.SetDoorLamp(0)
 			slaveSend <- network.Message{
-				Sender:   nw.LocalIP,
 				Receiver: masterID,
-				ID:       network.CreateID("Slave"),
+				ID:       network.CreateID(cl.Slave),
 				Response: cl.DoorClosed,
 				Content:  "",
 			}
@@ -111,17 +106,16 @@ func Run() {
 			case cl.LightOnOuterUp:
 				driver.SetOuterPanelLamp(1, int(message.Content.(float64)), 1)
 			case cl.LightOffOuterUp:
-				driver.SetOuterPanelLamp(0, int(message.Content.(float64)), 0)
+				driver.SetOuterPanelLamp(1, int(message.Content.(float64)), 0)
 			case cl.LightOnOuterDown:
-				driver.SetOuterPanelLamp(1, int(message.Content.(float64)), 1)
+				driver.SetOuterPanelLamp(-1, int(message.Content.(float64)), 1)
 			case cl.LightOffOuterDown:
-				driver.SetOuterPanelLamp(0, int(message.Content.(float64)), 0)
+				driver.SetOuterPanelLamp(-1, int(message.Content.(float64)), 0)
 			}
 		case <-startupTimer.C:
 			slaveSend <- network.Message{
-				Sender:   nw.LocalIP,
 				Receiver: nw.LocalIP,
-				ID:       network.CreateID("Slave"),
+				ID:       network.CreateID(cl.Slave),
 				Response: cl.SetMaster,
 				Content:  time.Now(),
 			}

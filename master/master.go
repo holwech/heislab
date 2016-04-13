@@ -44,7 +44,7 @@ func Run(nw *network.Network, sendMaster chan network.Message) {
 				sys.RemoveElevator(message.Sender)
 			case cl.Startup:
 				if isActive {
-					ping := network.Message{network.LocalIP(), message.Sender, network.CreateID(cl.Master), cl.JoinMaster, ""}
+					ping := network.Message{nw.LocalIP, message.Sender, network.CreateID(cl.Master), cl.JoinMaster, ""}
 					sendMaster <- ping
 				}
 				sys.AddElevator(message.Sender)
@@ -56,7 +56,7 @@ func Run(nw *network.Network, sendMaster chan network.Message) {
 			fmt.Println(sys)
 		case message := <-sys.Commands:
 			if isActive {
-				message.Sender = network.LocalIP()
+				message.Sender = nw.LocalIP
 				message.ID = network.CreateID(cl.Master)
 				sendMaster <- message
 			}
