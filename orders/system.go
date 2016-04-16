@@ -133,13 +133,21 @@ func (sys *System) RemoveOrder(elevatorIP string, floor int) {
 func (sys *System) NotifyDoorClosed(elevatorIP string) {
 	elevator, inSystem := sys.Elevators[elevatorIP]
 	if inSystem {
-		sys.SetBehaviour(elevatorIP, Idle)
-		for floor := 0; floor < 4; floor++ {
-			if elevator.Orders[floor] != None {
-				sys.SetBehaviour(elevatorIP, AwaitingCommand)
-			}
+		if elevator.hasMoreOrders(){
+			sys.SetBehaviour(elevatorIP,AwaitingCommand)
+		}else{
+			sys.SetBehaviour(elevatorIP,Idle)
 		}
 	}
+}
+
+func (elev *ElevatorState) hasMoreOrders() bool{
+	for floor := 0; floor < 4; floor++ {
+		if elev.Orders[floor] != None {
+			return true
+		}
+	}
+	return false
 }
 
 func (sys *System) SetBehaviour(elevatorIP string, behaviour Behaviour) {

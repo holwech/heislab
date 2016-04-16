@@ -3,7 +3,10 @@ package orders
 import (
 	"github.com/holwech/heislab/cl"
 	"github.com/holwech/heislab/network"
+	"math"
 )
+
+const maxCost int = 100000;
 
 func (sys *System) NotifyFloor(elevatorIP string, floor int) {
 	elevator, inSystem := sys.Elevators[elevatorIP]
@@ -37,34 +40,76 @@ func (sys *System) NotifyFloor(elevatorIP string, floor int) {
 	}
 }
 
+func (elev *ElevatorState) CalculateCost(floor, direction int) int{
+	switch elev.CurrentBehaviour{
+	case Idle:
+		return 100*math.Abs(elev.Floor - floor)
+	case Moving:
+		if (elev.Direction == 1 && elev.Floor < floor) ||
+		(elev.Direction == -1 && elev.Floor > floor){
+			return 100*math.Abs(elev.Floor - floor)
+		}else{
+			return maxCost
+		}
+	case DoorOpen:
+		if elev.hasMoreOrders(){ 
+			if (elev.Direction == 1 && elev.Floor < floor) ||
+			(elev.Direction == -1 && elev.Floor > floor){
+				return 100*math.Abs(elev.Floor - floor)
+			}else{
+				return maxCost
+			}
+		}else{
+			return 100*math.Abs(elev.Floor - floor)
+		}
+	case AwaitingCommand:
+	if (elev.Direction == 1 && elev.Floor < floor) ||
+		(elev.Direction == -1 && elev.Floor > floor){
+			return 100*math.Abs(elev.Floor - floor)
+		}else{
+			return maxCost
+		}
+	}
+}
+
 func (sys *System) AssignOrders() {
 	for floor := 0; floor < 4; floor++ {
 		if sys.UnhandledOrdersUp[floor] {
+			var minCost int = maxCost
+			var minCostElevIP string 
+			var minCostElev ElevatorState
 			for elevIP := range sys.Elevators {
 				elev := sys.Elevators[elevIP]
-				if elev.CurrentBehaviour == Idle ||
-					(elev.CurrentBehaviour == Moving &&
-						elev.Direction == 1 &&
-						elev.Floor < floor) {
-					elev.Orders[floor] = OuterUp
-					sys.Elevators[elevIP] = elev
-					sys.UnhandledOrdersUp[floor] = false
-					break
+				cost := elev.CalculateCost(floor,1)
+				if cost < minCost{
+					cost  = minCost
+					minCostElev = elev
+					minCostElevIP = elevIP
 				}
 			}
+			if minCost < maxCost{
+				elev.Orders[floor] = OuterUp
+				sys.Elevators[elevIP] = elev
+				sys.UnhandledOrdersUp[floor] = false
 		}
+	}
 		if sys.UnhandledOrdersDown[floor] {
+			var minCost int = maxCost
+			var minCostElevIP string 
+			var minCostElev ElevatorState
 			for elevIP := range sys.Elevators {
 				elev := sys.Elevators[elevIP]
-				if elev.CurrentBehaviour == Idle ||
-					(elev.CurrentBehaviour == Moving &&
-						elev.Direction == -1 &&
-						elev.Floor > floor) {
-					elev.Orders[floor] = OuterDown
-					sys.Elevators[elevIP] = elev
-					sys.UnhandledOrdersDown[floor] = false
-					break
+				cost := elev.CalculateCost(floor,-1)
+				if cost < minCost{
+					cost  = minCost
+					minCostElev = elev
+					minCostElevIP = elevIP
 				}
+			}
+			if minCost < maxCost{
+				elev.Orders[floor] = OuterDown
+				sys.Elevators[elevIP] = elev
+				sys.UnhandledOrdersDown[floor] = false
 			}
 		}
 	}
