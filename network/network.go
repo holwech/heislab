@@ -103,8 +103,7 @@ func sorter(nw *Network, commSend chan<- communication.CommData, commReceive <-c
 				printInfo("Slave received message", &convMsg)
 			}
 			if (((convMsg.ID[0] == 'S') && (convMsg.Response != cl.Connection)) ||
-				((convMsg.ID[0] == 'M') && (convMsg.Response == cl.Connection))) &&
-				 (convMsg.Sender == nw.LocalIP) {
+				((convMsg.ID[0] == 'M') && (convMsg.Response == cl.Connection))) {
 				nw.masterReceive <- convMsg
 				printInfo("Master received message", &convMsg)
 			}
