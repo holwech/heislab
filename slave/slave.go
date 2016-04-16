@@ -2,102 +2,104 @@ package main
 
 import (
 	"time"
-
+"fmt"
 	"github.com/holwech/heislab/cl"
 	"github.com/holwech/heislab/driver"
 	"github.com/holwech/heislab/master"
 	"github.com/holwech/heislab/network"
 )
 
+type Slave struct {
+	DoorTimer, StartupTimer *time.Timer
+	MasterID string
+}
 
+func (sl *Slave) Init() {
+	sl.DoorTimer = time.NewTimer(time.Second)
+	sl.DoorTimer.Stop()
+	sl.StartupTimer = time.NewTimer(time.Second)
+	sl.StartupTimer.Stop()
+	sl.MasterID = cl.Unknown
+}
+
+func initSlave() *Slave {
+	sl := new(Slave)
+	sl.Init()
+	return sl
+}
 
 func Run() {
 	innerChan, outerChan, floorChan := driver.InitElevator()
-	slaveSend := make(chan network.Message)
-	masterSend := make(chan network.Message)
-	nw := network.InitNetwork(slaveSend, masterSend)
-	slaveReceive := nw.SChannels()
-	go master.Run(nw, masterSend)
-	doorTimer := time.NewTimer(3 * time.Second)
-	doorTimer.Stop()
-	masterID := cl.Unknown
-	startupTimer := time.NewTimer(50 * time.Millisecond)
-	slaveSend <- network.Message{
-		Receiver: nw.LocalIP,
-		ID:       network.CreateID(cl.Slave),
-		Response: cl.Startup,
-		Content:  time.Now(),
-	}
+	fmt.Println("loool")
+	nw := network.InitNetwork()
+	master.InitMaster(nw)
+	sl := initSlave()
+	slaveReceive, slaveSend := nw.SChannels()
+	sl.StartupTimer.Reset(50 * time.Millisecond)
+	send(nw.LocalIP, cl.Startup, time.Now(), slaveSend)
 	for {
 		select {
 		case innerOrder := <-innerChan:
-			message := network.Message{
-				Receiver: masterID,
-				ID:       network.CreateID(cl.Slave),
-				Response: cl.InnerOrder,
-				Content:  innerOrder,
-			}
-			slaveSend <- message
+			send(sl.MasterID, cl.InnerOrder, innerOrder, slaveSend)
 		case outerOrder := <-outerChan:
-			message := network.Message{
-				Receiver: masterID,
-				ID:       network.CreateID(cl.Slave),
-				Response: cl.OuterOrder,
-				Content:  outerOrder,
-			}
-			slaveSend <- message
+			send(sl.MasterID, cl.OuterOrder, outerOrder, slaveSend)
 		case newFloor := <-floorChan:
-			message := network.Message{
-				Receiver: masterID,
-				ID:       network.CreateID(cl.Slave),
-				Response: cl.Floor,
-				Content:  newFloor,
-			}
-			slaveSend <- message
-		case <-doorTimer.C:
+			send(sl.MasterID, cl.Floor, newFloor, slaveSend)
+		case <- sl.DoorTimer.C:
 			driver.SetDoorLamp(0)
-			slaveSend <- network.Message{
-				Receiver: masterID,
-				ID:       network.CreateID(cl.Slave),
-				Response: cl.DoorClosed,
-				Content:  "",
-			}
+			send(sl.MasterID, cl.DoorClosed, "", slaveSend)
 		case message := <-slaveReceive:
-			switch message.Response {
-			case cl.Up:
-				driver.SetMotorDirection(1)
-			case cl.Down:
-				driver.SetMotorDirection(-1)
-			case cl.Stop:
-				driver.SetMotorDirection(0)
-				driver.SetDoorLamp(1)
-				doorTimer.Reset(3 * time.Second)
-			case cl.JoinMaster:
-				startupTimer.Stop()
-				masterID = message.Sender
-			case cl.LightOnInner:
-				driver.SetInnerPanelLamp(int(message.Content.(float64)), 1)
-			case cl.LightOffInner:
-				driver.SetInnerPanelLamp(int(message.Content.(float64)), 0)
-			case cl.LightOnOuterUp:
-				driver.SetOuterPanelLamp(1, int(message.Content.(float64)), 1)
-			case cl.LightOffOuterUp:
-				driver.SetOuterPanelLamp(1, int(message.Content.(float64)), 0)
-			case cl.LightOnOuterDown:
-				driver.SetOuterPanelLamp(-1, int(message.Content.(float64)), 1)
-			case cl.LightOffOuterDown:
-				driver.SetOuterPanelLamp(-1, int(message.Content.(float64)), 0)
-			}
-		case <-startupTimer.C:
-			slaveSend <- network.Message{
-				Receiver: nw.LocalIP,
-				ID:       network.CreateID(cl.Slave),
-				Response: cl.SetMaster,
-				Content:  time.Now(),
-			}
-			masterID = nw.LocalIP
+			handleInput(sl, nw, message, slaveSend)
+		case <- sl.StartupTimer.C:
+			send(nw.LocalIP, cl.SetMaster, time.Now(), slaveSend)
+			sl.MasterID = nw.LocalIP
 		}
 	}
+}
+
+func handleInput(sl *Slave, nw *network.Network, message network.Message, slaveSend chan<- network.Message) {
+	switch message.Response {
+	case cl.Up:
+		driver.SetMotorDirection(1)
+	case cl.Down:
+		driver.SetMotorDirection(-1)
+	case cl.Stop:
+		driver.SetMotorDirection(0)
+		driver.SetDoorLamp(1)
+		sl.DoorTimer.Reset(3 * time.Second)
+	case cl.JoinMaster:
+		sl.StartupTimer.Stop()
+		sl.MasterID = message.Sender
+	case cl.LightOnInner:
+		driver.SetInnerPanelLamp(message.Content.(int), 1)
+	case cl.LightOffInner:
+		driver.SetInnerPanelLamp(message.Content.(int), 0)
+	case cl.LightOnOuterUp:
+		driver.SetOuterPanelLamp(1, message.Content.(int), 1)
+	case cl.LightOffOuterUp:
+		driver.SetOuterPanelLamp(1, message.Content.(int), 0)
+	case cl.LightOnOuterDown:
+		driver.SetOuterPanelLamp(-1, message.Content.(int), 1)
+	case cl.LightOffOuterDown:
+		driver.SetOuterPanelLamp(-1, message.Content.(int), 0)
+	case cl.Connection:
+		switch message.Content{
+		case cl.Failed:
+			//Assumes lost connection on timeout. This will be changed later
+			send(nw.LocalIP, cl.SetMaster, time.Now(), slaveSend)
+			sl.MasterID = nw.LocalIP
+		}
+	}
+}
+
+func send(masterID string, response string, content interface{}, slaveSend chan<- network.Message) {
+	message := network.Message{
+		Receiver: masterID,
+		ID:       network.CreateID(cl.Slave),
+		Response: response,
+		Content:  content,
+	}
+	slaveSend <- message
 }
 
 func main() {

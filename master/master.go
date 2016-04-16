@@ -8,14 +8,14 @@ import (
 	"github.com/holwech/heislab/orders"
 )
 
-func Init(nw *network.Network, sendMaster chan network.Message) {
-	go Run(nw, sendMaster)
+func InitMaster(nw *network.Network) {
+	go Run(nw)
 }
 
 //Listen to inputs from slaves and send commands back
 //Will the behaviour and order list be the same on all masters running?
-func Run(nw *network.Network, sendMaster chan network.Message) {
-	inputChan := nw.MChannels()
+func Run(nw *network.Network) {
+	inputChan, sendMaster := nw.MChannels()
 	sys := orders.NewSystem()
 	isActive := false
 	for {
@@ -24,16 +24,16 @@ func Run(nw *network.Network, sendMaster chan network.Message) {
 			switch message.Response {
 			case cl.InnerOrder:
 				content := message.Content.(map[string]interface{})
-				floor := int(content["Floor"].(float64))
+				floor := content["Floor"].(int)
 				sys.AddInnerOrder(message.Sender, floor)
 			case cl.OuterOrder:
 				content := message.Content.(map[string]interface{})
-				floor := int(content["Floor"].(float64))
-				direction := int(content["Direction"].(float64))
+				floor := content["Floor"].(int)
+				direction := content["Direction"].(int)
 				sys.AddOuterOrder(floor, direction)
 
 			case cl.Floor:
-				floor := int(message.Content.(float64))
+				floor := message.Content.(int)
 				sys.NotifyFloor(message.Sender, floor)
 
 			case cl.DoorClosed:

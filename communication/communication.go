@@ -11,7 +11,7 @@ import (
 )
 
 const com_id = "2323" //Key for all elevators on the system
-const port = ":22212"
+const port = ":22222"
 const broadcast_addr = "255.255.255.255"
 
 type CommData struct {
@@ -99,6 +99,12 @@ func checkTimeout(connStatus chan Timestamp, receivedMsg chan CommData) {
 		select {
 		case metadata := <-connStatus:
 			if metadata.Status == cl.OK {
+				currentTime := time.Now()
+				timeDiff := currentTime.Sub(messageLog[metadata.MsgID].SendTime)
+				content := cl.OK
+				if timeDiff.Seconds() > 0.050 {
+					content = cl.Timeout
+				}
 				delete(messageLog, metadata.MsgID)
 				status := CommData{
 					Key:        com_id,
@@ -106,7 +112,7 @@ func checkTimeout(connStatus chan Timestamp, receivedMsg chan CommData) {
 					ReceiverIP: GetLocalIP(),
 					MsgID:      metadata.MsgID,
 					Response:   cl.Connection,
-					Content:    cl.OK,
+					Content:    content,
 				}
 				receivedMsg <- status
 			} else {
@@ -116,7 +122,7 @@ func checkTimeout(connStatus chan Timestamp, receivedMsg chan CommData) {
 			currentTime := time.Now()
 			for msgID, metadata := range messageLog {
 				timeDiff := currentTime.Sub(metadata.SendTime)
-				if timeDiff.Seconds() > 5 {
+				if timeDiff.Seconds() > 0.050 {
 					delete(messageLog, msgID)
 					status := CommData{
 						Key:        com_id,
