@@ -18,8 +18,8 @@ func (sys *System) NotifyFloor(elevatorIP string, floor int) {
 			command.Receiver = elevatorIP
 			command.Response = cl.Stop
 			sys.Commands <- command
-
-			commandLight.Receiver = elevatorIP
+			
+			commandLight.Receiver = cl.All
 			if elevator.Orders[floor] == OuterDown {
 				commandLight.Response = cl.LightOffOuterDown
 			} else if elevator.Orders[floor] == OuterUp {
@@ -27,6 +27,7 @@ func (sys *System) NotifyFloor(elevatorIP string, floor int) {
 			}
 			commandLight.Content = floor
 			sys.Commands <- commandLight
+			commandLight.Receiver = elevatorIP
 			commandLight.Response = cl.LightOffInner
 			sys.Commands <- commandLight
 

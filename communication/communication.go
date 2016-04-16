@@ -41,14 +41,15 @@ func Run(sendCh chan CommData) <-chan CommData {
 	connStatus := make(chan Timestamp)
 	commSend := make(chan CommData)
 	receivedMsg := make(chan CommData)
+	localIP := GetLocalIP()
 	go listen(commReceive)
 	go broadcast(commSend, connStatus)
-	go checkTimeout(connStatus, receivedMsg)
-	go msgSorter(commReceive, receivedMsg, connStatus, commSend, sendCh)
+	go checkTimeout(connStatus, receivedMsg, localIP)
+	go msgSorter(commReceive, receivedMsg, connStatus, commSend, sendCh, localIP)
 	return receivedMsg
 }
 
-func msgSorter(commReceive <-chan CommData, receivedMsg chan<- CommData, connStatus chan<- Timestamp, commSend chan<- CommData, sendCh <-chan CommData) {
+func msgSorter(commReceive <-chan CommData, receivedMsg chan<- CommData, connStatus chan<- Timestamp, commSend chan<- CommData, sendCh <-chan CommData, localIP string) {
 	for {
 		select {
 		// When messages are received
@@ -56,7 +57,7 @@ func msgSorter(commReceive <-chan CommData, receivedMsg chan<- CommData, connSta
 			// If message is a receive-confirmation, push to status-channel
 			if message.Response == cl.Connection {
 				// Filters out status-messages that are not relevant for receiver
-				if message.ReceiverIP == GetLocalIP() {
+				if message.ReceiverIP == localIP && message.Content == cl.OK {
 					received := Timestamp{
 						SenderIP: message.SenderIP,
 						MsgID:    message.MsgID,
@@ -65,18 +66,20 @@ func msgSorter(commReceive <-chan CommData, receivedMsg chan<- CommData, connSta
 					}
 					connStatus <- received
 				}
-				// If message is a normal message, then send verification
+			// If message is a normal message, then send verification
 			} else {
-				ok := CommData{
-					Key:        com_id,
-					SenderIP:   message.ReceiverIP,
-					ReceiverIP: message.SenderIP,
-					MsgID:      message.MsgID,
-					Response:   cl.Connection,
-					Content:    cl.OK,
+				if message.ReceiverIP == localIP {
+					ok := CommData{
+						Key:        com_id,
+						SenderIP:   localIP,
+						ReceiverIP: message.SenderIP,
+						MsgID:      message.MsgID,
+						Response:   cl.Connection,
+						Content:    cl.OK,
+					}
+					commSend <- ok
 				}
 				receivedMsg <- message
-				commSend <- ok
 			}
 		// When messages are sent, set time-stamp
 		case message := <-sendCh:
@@ -92,7 +95,7 @@ func msgSorter(commReceive <-chan CommData, receivedMsg chan<- CommData, connSta
 	}
 }
 
-func checkTimeout(connStatus chan Timestamp, receivedMsg chan CommData) {
+func checkTimeout(connStatus chan Timestamp, receivedMsg chan CommData, localIP string) {
 	messageLog := make(map[string]Timestamp)
 	ticker := time.NewTicker(50 * time.Millisecond).C
 	for {
@@ -102,14 +105,14 @@ func checkTimeout(connStatus chan Timestamp, receivedMsg chan CommData) {
 				currentTime := time.Now()
 				timeDiff := currentTime.Sub(messageLog[metadata.MsgID].SendTime)
 				content := cl.OK
-				if timeDiff.Seconds() > 0.050 {
+				if timeDiff > 50*time.Millisecond {
 					content = cl.Timeout
 				}
 				delete(messageLog, metadata.MsgID)
 				status := CommData{
 					Key:        com_id,
 					SenderIP:   metadata.SenderIP,
-					ReceiverIP: GetLocalIP(),
+					ReceiverIP: localIP,
 					MsgID:      metadata.MsgID,
 					Response:   cl.Connection,
 					Content:    content,
@@ -122,12 +125,12 @@ func checkTimeout(connStatus chan Timestamp, receivedMsg chan CommData) {
 			currentTime := time.Now()
 			for msgID, metadata := range messageLog {
 				timeDiff := currentTime.Sub(metadata.SendTime)
-				if timeDiff.Seconds() > 0.050 {
+				if timeDiff > 50*time.Millisecond {
 					delete(messageLog, msgID)
 					status := CommData{
 						Key:        com_id,
 						SenderIP:   metadata.SenderIP,
-						ReceiverIP: GetLocalIP(),
+						ReceiverIP: localIP,
 						MsgID:      metadata.MsgID,
 						Response:   cl.Connection,
 						Content:    cl.Failed,
