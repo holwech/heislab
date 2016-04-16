@@ -3,7 +3,6 @@ package orders
 import (
 	"github.com/holwech/heislab/cl"
 	"github.com/holwech/heislab/network"
-	"math"
 )
 
 const maxCost int = 100000;
@@ -40,14 +39,22 @@ func (sys *System) NotifyFloor(elevatorIP string, floor int) {
 	}
 }
 
+func intAbs(num int) int{
+	if num < 0{
+		return -num
+	}else{
+		return num
+	}
+}
+
 func (elev *ElevatorState) CalculateCost(floor, direction int) int{
 	switch elev.CurrentBehaviour{
 	case Idle:
-		return 100*math.Abs(elev.Floor - floor)
+		return 100*intAbs(elev.Floor - floor)
 	case Moving:
 		if (elev.Direction == 1 && elev.Floor < floor) ||
 		(elev.Direction == -1 && elev.Floor > floor){
-			return 100*math.Abs(elev.Floor - floor)
+			return 100*intAbs(elev.Floor - floor)
 		}else{
 			return maxCost
 		}
@@ -55,20 +62,22 @@ func (elev *ElevatorState) CalculateCost(floor, direction int) int{
 		if elev.hasMoreOrders(){ 
 			if (elev.Direction == 1 && elev.Floor < floor) ||
 			(elev.Direction == -1 && elev.Floor > floor){
-				return 100*math.Abs(elev.Floor - floor)
+				return 100*intAbs(elev.Floor - floor)
 			}else{
 				return maxCost
 			}
 		}else{
-			return 100*math.Abs(elev.Floor - floor)
+			return 100*intAbs(elev.Floor - floor)
 		}
 	case AwaitingCommand:
 	if (elev.Direction == 1 && elev.Floor < floor) ||
 		(elev.Direction == -1 && elev.Floor > floor){
-			return 100*math.Abs(elev.Floor - floor)
+			return 100*intAbs(elev.Floor - floor)
 		}else{
 			return maxCost
 		}
+	default:
+		return maxCost
 	}
 }
 
@@ -82,14 +91,14 @@ func (sys *System) AssignOrders() {
 				elev := sys.Elevators[elevIP]
 				cost := elev.CalculateCost(floor,1)
 				if cost < minCost{
-					cost  = minCost
+					minCost  = cost
 					minCostElev = elev
 					minCostElevIP = elevIP
 				}
 			}
 			if minCost < maxCost{
-				elev.Orders[floor] = OuterUp
-				sys.Elevators[elevIP] = elev
+				minCostElev.Orders[floor] = OuterUp
+				sys.Elevators[minCostElevIP] = minCostElev
 				sys.UnhandledOrdersUp[floor] = false
 		}
 	}
@@ -101,14 +110,14 @@ func (sys *System) AssignOrders() {
 				elev := sys.Elevators[elevIP]
 				cost := elev.CalculateCost(floor,-1)
 				if cost < minCost{
-					cost  = minCost
+					minCost  = cost
 					minCostElev = elev
 					minCostElevIP = elevIP
 				}
 			}
 			if minCost < maxCost{
-				elev.Orders[floor] = OuterDown
-				sys.Elevators[elevIP] = elev
+				minCostElev.Orders[floor] = OuterDown
+				sys.Elevators[minCostElevIP] = minCostElev
 				sys.UnhandledOrdersDown[floor] = false
 			}
 		}

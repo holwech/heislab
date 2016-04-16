@@ -34,14 +34,12 @@ func sender(slaveSend chan<- Message) {
 	count := 0
 	for{
 		time.Sleep(time.Second * 5)
-		id := CreateID(cl.Slave)
 		message := Message{
 			LocalIP(),
-			LocalIP(),
-			id,
+			"129.241.187.140",
+			CreateID(cl.Master),
 			"Test",
 			count,
-			//map[string]interface{}{"test": 1, "wha": "ekeke"},
 		}
 		count += 1
 		slaveSend <- message

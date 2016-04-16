@@ -8,7 +8,7 @@ import (
 )
 
 const info = false
-const printAll = false
+const printAll = true
 const conn = false
 
 type Message struct {

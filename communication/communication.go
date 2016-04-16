@@ -105,7 +105,7 @@ func checkTimeout(connStatus chan Timestamp, receivedMsg chan CommData, localIP 
 				currentTime := time.Now()
 				timeDiff := currentTime.Sub(messageLog[metadata.MsgID].SendTime)
 				content := cl.OK
-				if timeDiff > 50*time.Millisecond {
+				if timeDiff > 500*time.Millisecond {
 					content = cl.Timeout
 				}
 				delete(messageLog, metadata.MsgID)
@@ -125,7 +125,7 @@ func checkTimeout(connStatus chan Timestamp, receivedMsg chan CommData, localIP 
 			currentTime := time.Now()
 			for msgID, metadata := range messageLog {
 				timeDiff := currentTime.Sub(metadata.SendTime)
-				if timeDiff > 50*time.Millisecond {
+				if timeDiff > 500*time.Millisecond {
 					delete(messageLog, msgID)
 					status := CommData{
 						Key:        com_id,
