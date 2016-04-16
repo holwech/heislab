@@ -6,37 +6,33 @@ import (
 )
 
 func (sys *System) NotifyFloor(elevatorIP string, floor int) {
+	elevator, inSystem := sys.Elevators[elevatorIP]
+	if inSystem && floor != -1 {
+		if elevator.Orders[floor] != None {
+			var command network.Message
+			var commandLight network.Message
 
-	elevator, exists := sys.Elevators[elevatorIP]
-	if !exists || floor == -1 {
-		return
-	}
-	//Update current floor and stop if order in floor
-	elevator.Floor = floor
-	sys.Elevators[elevatorIP] = elevator
+			command.Receiver = elevatorIP
+			command.Response = cl.Stop
+			sys.Commands <- command
 
-	if elevator.Orders[floor] != None {
-		var command network.Message
-		var commandLight network.Message
+			commandLight.Receiver = elevatorIP
+			if elevator.Orders[floor] == OuterDown {
+				commandLight.Response = cl.LightOffOuterDown
+			} else if elevator.Orders[floor] == OuterUp {
+				commandLight.Response = cl.LightOffOuterUp
+			}
+			commandLight.Content = floor
+			sys.Commands <- commandLight
+			commandLight.Response = cl.LightOffInner
+			sys.Commands <- commandLight
 
-		command.Receiver = elevatorIP
-		command.Response = cl.Stop
-		sys.Commands <- command
-
-		commandLight.Receiver = elevatorIP
-		if elevator.Orders[floor] == OuterDown {
-			commandLight.Response = cl.LightOffOuterDown
-		} else if elevator.Orders[floor] == OuterUp {
-			commandLight.Response = cl.LightOffOuterUp
+			sys.RemoveOrder(elevatorIP, floor)
+			sys.SetBehaviour(elevatorIP, DoorOpen)		
 		}
-		commandLight.Content = floor
-		sys.Commands <- commandLight
-		commandLight.Response = cl.LightOffInner
-		sys.Commands <- commandLight
-
-		sys.RemoveOrder(elevatorIP, floor)
-		sys.SetBehaviour(elevatorIP, DoorOpen)
-
+		//Update current floor and stop if order in floor
+		elevator.Floor = floor
+		sys.Elevators[elevatorIP] = elevator
 	}
 }
 
@@ -86,7 +82,7 @@ func (sys *System) CheckNewCommand() {
 		}
 		for floor := 0; floor < 4; floor++ {
 			if elev.Orders[floor] != None &&
-				(elev.CurrentBehaviour == Idle || elev.CurrentBehaviour == WaitingNextOrder) {
+				(elev.CurrentBehaviour == Idle || elev.CurrentBehaviour == AwaitingCommand) {
 				command.Receiver = elevIP
 				if floor < elev.Floor {
 					command.Response = cl.Down
@@ -105,7 +101,7 @@ func (sys *System) CheckNewCommand() {
 					sys.Commands <- cmdLight
 					cmdLight.Response = cl.LightOffOuterUp
 					sys.Commands <- cmdLight
-					cmdLight.Response = cl.LightOnOuterDown
+					cmdLight.Response = cl.LightOffOuterDown
 					sys.Commands <- cmdLight
 				}
 				sys.Commands <- command

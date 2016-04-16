@@ -33,7 +33,7 @@ const (
 	Idle Behaviour = iota
 	Moving
 	DoorOpen
-	WaitingNextOrder
+	AwaitingCommand
 )
 
 type Order int
@@ -95,78 +95,65 @@ func (sys *System) RemoveElevator(elevatorIP string) bool {
 	return exists
 }
 
-func (sys *System) AddInnerOrder(elevatorIP string, floor int) bool {
-	alreadyAdded := false
-	elevator, exists := sys.Elevators[elevatorIP]
+func (sys *System) NotifyInnerOrder(elevatorIP string, floor int){
+	elevator, inSystem := sys.Elevators[elevatorIP]
 
-	if exists {
-		if elevator.Orders[floor] != None {
-			alreadyAdded = true
-		} else {
+	if inSystem {
+		if elevator.Orders[floor] == None {
 			elevator.Orders[floor] = Inner
 			sys.Elevators[elevatorIP] = elevator
 		}
-		cmdLight := network.Message{"", elevatorIP, "", cl.LightOnInner, floor}
-		sys.Commands <- cmdLight
+		//if elevator.Floor != floor{
+			cmdLight := network.Message{"", elevatorIP, "", cl.LightOnInner, floor}
+			sys.Commands <- cmdLight
+		//}
 	}
-	return exists && !alreadyAdded
 }
 
-func (sys *System) AddOuterOrder(floor, direction int) bool {
-	alreadyAdded := false
+func (sys *System) NotifyOuterOrder(floor, direction int) {
 	if direction == -1 {
-		if sys.UnhandledOrdersDown[floor] {
-			alreadyAdded = true
-		} else {
-			sys.UnhandledOrdersDown[floor] = true
-		}
+		sys.UnhandledOrdersDown[floor] = true
 		cmdLight := network.Message{"", cl.All, "", cl.LightOnOuterDown, floor}
 		sys.Commands <- cmdLight
 	} else if direction == 1 {
-		if sys.UnhandledOrdersUp[floor] {
-			alreadyAdded = true
-		} else {
-			sys.UnhandledOrdersUp[floor] = true
-		}
+		sys.UnhandledOrdersUp[floor] = true
 		cmdLight := network.Message{"", cl.All, "", cl.LightOnOuterUp, floor}
 		sys.Commands <- cmdLight
 	}
-	return !alreadyAdded
 }
 
 func (sys *System) RemoveOrder(elevatorIP string, floor int) {
-	elevator := sys.Elevators[elevatorIP]
-	elevator.Orders[floor] = None
-	sys.Elevators[elevatorIP] = elevator
+	elevator, inSystem := sys.Elevators[elevatorIP]
+	if inSystem{
+		elevator.Orders[floor] = None
+		sys.Elevators[elevatorIP] = elevator
+	}
 }
 
 func (sys *System) NotifyDoorClosed(elevatorIP string) {
-	elevator, exists := sys.Elevators[elevatorIP]
-	if !exists {
-		return
-	}
-	sys.SetBehaviour(elevatorIP, Idle)
-	for floor := 0; floor < 4; floor++ {
-		if elevator.Orders[floor] != None {
-			sys.SetBehaviour(elevatorIP, WaitingNextOrder)
+	elevator, inSystem := sys.Elevators[elevatorIP]
+	if inSystem {
+		sys.SetBehaviour(elevatorIP, Idle)
+		for floor := 0; floor < 4; floor++ {
+			if elevator.Orders[floor] != None {
+				sys.SetBehaviour(elevatorIP, AwaitingCommand)
+			}
 		}
 	}
 }
 
 func (sys *System) SetBehaviour(elevatorIP string, behaviour Behaviour) {
-	elevator, exists := sys.Elevators[elevatorIP]
-	if !exists {
-		return
+	elevator, inSystem := sys.Elevators[elevatorIP]
+	if inSystem {
+		elevator.CurrentBehaviour = behaviour
+		sys.Elevators[elevatorIP] = elevator
 	}
-	elevator.CurrentBehaviour = behaviour
-	sys.Elevators[elevatorIP] = elevator
 }
 
 func (sys *System) SetDirection(elevatorIP string, direction int) {
-	elevator, exists := sys.Elevators[elevatorIP]
-	if !exists {
-		return
+	elevator, inSystem := sys.Elevators[elevatorIP]
+	if inSystem {
+		elevator.Direction = direction
+		sys.Elevators[elevatorIP] = elevator
 	}
-	elevator.Direction = direction
-	sys.Elevators[elevatorIP] = elevator
 }

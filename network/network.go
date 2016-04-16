@@ -20,7 +20,7 @@ type Network struct {
 }
 
 func printInfo(comment string, message *Message) {
-	conn := true
+	conn := false
 	if (info && message.Response != cl.Connection) || conn {
 		fmt.Println("NETW: " + comment)
 		PrintMessage(message)

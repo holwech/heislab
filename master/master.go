@@ -25,12 +25,13 @@ func Run(nw *network.Network) {
 			case cl.InnerOrder:
 				content := message.Content.(map[string]interface{})
 				floor := content["Floor"].(int)
-				sys.AddInnerOrder(message.Sender, floor)
+				sys.NotifyInnerOrder(message.Sender, floor)
+
 			case cl.OuterOrder:
 				content := message.Content.(map[string]interface{})
 				floor := content["Floor"].(int)
 				direction := content["Direction"].(int)
-				sys.AddOuterOrder(floor, direction)
+				sys.NotifyOuterOrder(floor, direction)
 
 			case cl.Floor:
 				floor := message.Content.(int)
@@ -42,6 +43,7 @@ func Run(nw *network.Network) {
 			case cl.Timeout:
 				//Future work - check connected elevators
 				sys.RemoveElevator(message.Sender)
+				
 			case cl.Startup:
 				if isActive {
 					ping := network.Message{nw.LocalIP, message.Sender, network.CreateID(cl.Master), cl.JoinMaster, ""}
