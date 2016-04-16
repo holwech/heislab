@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 	"fmt"
+	"github.com/holwech/heislab/cl"
 )
 
 const m = true
@@ -33,7 +34,7 @@ func sender(slaveSend chan<- Message) {
 	count := 0
 	for{
 		time.Sleep(time.Second * 5)
-		id := CreateID("Master")
+		id := CreateID(cl.Slave)
 		message := Message{
 			LocalIP(),
 			LocalIP(),
@@ -45,6 +46,7 @@ func sender(slaveSend chan<- Message) {
 		count += 1
 		slaveSend <- message
 		fmt.Printf("DEBUG: Sending %d\n", count)
+		PrintMessage(&message)
 	}
 }
 

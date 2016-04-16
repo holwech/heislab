@@ -7,9 +7,9 @@ import (
 	"github.com/satori/go.uuid"
 )
 
-const info = true
+const info = false
 const printAll = false
-const conn = true
+const conn = false
 
 type Message struct {
 	Sender, Receiver, ID, Response string
