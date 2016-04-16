@@ -54,7 +54,7 @@ func (elev *ElevatorState) CalculateCost(floor, direction int) int{
 	case Moving:
 		if (elev.Direction == 1 && elev.Floor < floor) ||
 		(elev.Direction == -1 && elev.Floor > floor){
-			return 100*intAbs(elev.Floor - floor)
+			return 10*intAbs(elev.Floor - floor)
 		}else{
 			return maxCost
 		}
@@ -62,7 +62,7 @@ func (elev *ElevatorState) CalculateCost(floor, direction int) int{
 		if elev.hasMoreOrders(){ 
 			if (elev.Direction == 1 && elev.Floor < floor) ||
 			(elev.Direction == -1 && elev.Floor > floor){
-				return 100*intAbs(elev.Floor - floor)
+				return 15*intAbs(elev.Floor - floor)
 			}else{
 				return maxCost
 			}
@@ -72,7 +72,7 @@ func (elev *ElevatorState) CalculateCost(floor, direction int) int{
 	case AwaitingCommand:
 	if (elev.Direction == 1 && elev.Floor < floor) ||
 		(elev.Direction == -1 && elev.Floor > floor){
-			return 100*intAbs(elev.Floor - floor)
+			return 12*intAbs(elev.Floor - floor)
 		}else{
 			return maxCost
 		}
