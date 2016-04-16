@@ -1,71 +1,67 @@
 package master
 
 import (
-	"github.com/holwech/heislab/network"
-	"github.com/holwech/heislab/cl"
-	"github.com/holwech/heislab/orders"	
-	"time"
 	"fmt"
+
+	"github.com/holwech/heislab/cl"
+	"github.com/holwech/heislab/network"
+	"github.com/holwech/heislab/orders"
 )
 
-func Init(nw *network.Network, sendMaster chan network.Message) {
-	go Run(nw,sendMaster)
+func InitMaster(nw *network.Network) {
+	go Run(nw)
 }
-//Listen to inputs from slaves and send actions back
-	//When do we send new orders to elevators?
-	//Does activation message come from slave?
-	//Will the behaviour and order list be the same on all masters running?
-func Run(nw *network.Network, sendMaster chan network.Message){
-	messageChan, statusChan := nw.MChannels()
+
+//Listen to inputs from slaves and send commands back
+//Will the behaviour and order list be the same on all masters running?
+func Run(nw *network.Network) {
+	inputChan, sendMaster := nw.MChannels()
 	sys := orders.NewSystem()
 	isActive := false
-	ticker := time.NewTicker(50 * time.Millisecond)
-	for{
-	select{
-	case message := <- messageChan:
-		switch message.Response{
-		case cl.InnerOrder:
-			content := message.Content.(map[string]interface{})	
-			floor := int(content["Floor"].(float64))
-			sys.AssignOrder(message.Sender,floor)			
-		case cl.OuterOrder:
-			content := message.Content.(map[string]interface{})	
-			floor := int(content["Floor"].(float64))
-			direction := int(content["Direction"].(float64))
-			sys.AddOuterOrder(floor,direction)
-		case cl.Floor:		
-			floor := int(message.Content.(float64))
-			cmd, hasCommand := sys.FloorAction(message.Sender,floor)
-			cmd.Sender = network.LocalIP()
-			cmd.ID = network.CreateID(cl.Master)
-			if hasCommand && isActive{
-				sendMaster <- cmd
-			}
-		case cl.Startup:
+	for {
+		select {
+		case message := <-inputChan:
+			switch message.Response {
+			case cl.InnerOrder:
+				content := message.Content.(map[string]interface{})
+				floor := content["Floor"].(int)
+				sys.NotifyInnerOrder(message.Sender, floor)
 
-			ping := network.Message{network.LocalIP(),message.Sender,network.CreateID(cl.Master),cl.JoinMaster,""}
-			if isActive{
-				sendMaster <- ping
+			case cl.OuterOrder:
+				content := message.Content.(map[string]interface{})
+				floor := content["Floor"].(int)
+				direction := content["Direction"].(int)
+				sys.NotifyOuterOrder(floor, direction)
+
+			case cl.Floor:
+				floor := message.Content.(int)
+				sys.NotifyFloor(message.Sender, floor)
+
+			case cl.DoorClosed:
+				sys.NotifyDoorClosed(message.Sender)
+
+			case cl.Timeout:
+				//Future work - check connected elevators
+				sys.RemoveElevator(message.Sender)
+				
+			case cl.Startup:
+				if isActive {
+					ping := network.Message{nw.LocalIP, message.Sender, network.CreateID(cl.Master), cl.JoinMaster, ""}
+					sendMaster <- ping
+				}
+				sys.AddElevator(message.Sender)
+			case cl.SetMaster:
+				isActive = true
 			}
-			sys.AddElevator(message.Sender)			
-		case cl.SetMaster:
-			isActive = true
-		}
-	case connStatus := <- statusChan:
-		switch connStatus.Response{
-		case cl.Timeout:
-			sys.RemoveElevator(connStatus.Sender)
-	}
-	case <-ticker.C:
-			cmd, hasCommand := sys.Command()
-			cmd.Sender = network.LocalIP()
-			cmd.ID = network.CreateID(cl.Master)
-			if hasCommand && isActive{
-				fmt.Println("MASTE34R")
-				sendMaster <- cmd
-			}
-		}
-	}
+			sys.AssignOrders()
+			sys.CheckNewCommand()
 			fmt.Println(sys)
-
+		case message := <-sys.Commands:
+			if isActive {
+				message.Sender = nw.LocalIP
+				message.ID = network.CreateID(cl.Master)
+				sendMaster <- message
+			}
+		}
+	}
 }

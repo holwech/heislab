@@ -1,31 +1,33 @@
 package network
 
 import (
+	"fmt"
+	"github.com/holwech/heislab/cl"
 	"github.com/holwech/heislab/communication"
 	"github.com/satori/go.uuid"
-	"fmt"
 )
 
 const info = true
 
 type Message struct {
 	Sender, Receiver, ID, Response string
-	Content interface{}
+	Content                        interface{}
 }
 
 type Network struct {
-	slaveReceive, slaveStatus, slaveSend, masterReceive, masterStatus, masterSend chan Message
-	LocalIP string
+	slaveReceive, slaveSend, masterReceive, masterSend chan Message
+	LocalIP                                            string
 }
 
 func printInfo(comment string, message *Message) {
-	if info {
+	conn := false
+	if (info && message.Response != cl.Connection) || conn {
 		fmt.Println("NETW: " + comment)
 		PrintMessage(message)
 	}
 }
 
-func PrintMessage (message *Message) {
+func PrintMessage(message *Message) {
 	fmt.Printf("NETW: Sender: %s\n", message.Sender)
 	fmt.Printf("NETW: Receiver: %s\n", message.Receiver)
 	fmt.Printf("NETW: ID: %s\n", message.ID)
@@ -33,12 +35,20 @@ func PrintMessage (message *Message) {
 	fmt.Printf("NETW: Content: %v\n", message.Content)
 }
 
-func CreateID(senderType string) (string) {
+func printError(errMsg string, err error) {
+	fmt.Printf(errMsg + "\n")
+	fmt.Printf(err.Error() + "\n")
+	fmt.Println()
+}
+
+func CreateID(senderType string) string {
 	id := uuid.NewV4()
-	if senderType == "Master" {
-		return  "M" + id.String()
-	} else{
-		return  "S" + id.String()
+	if senderType == cl.Master {
+		return "M" + id.String()
+	} else if senderType == cl.Slave {
+		return "S" + id.String()
+	} else {
+		return "=== ERROR: Wrong input in network.CreateID"
 	}
 }
 
@@ -46,81 +56,84 @@ func LocalIP() string {
 	return communication.GetLocalIP()
 }
 
-func (nw *Network) Init(slaveSend chan Message, masterSend chan Message) {
+func InitNetwork() *Network {
+	nw := new(Network)
+	nw.Init()
+	Run(nw)
+	return nw
+}
+
+func (nw *Network) Init() {
 	nw.slaveReceive = make(chan Message)
-	nw.slaveStatus = make(chan Message)
-	nw.slaveSend = slaveSend
 	nw.masterReceive = make(chan Message)
-	nw.masterStatus = make(chan Message)
-	nw.masterSend = masterSend
+	nw.slaveSend = make(chan Message)
+	nw.masterSend = make(chan Message)
 }
 
-func (nw *Network) SChannels() (<- chan Message, <- chan Message){
-	return nw.slaveReceive, nw.slaveStatus
+func (nw *Network) SChannels() (<-chan Message, chan<- Message) {
+	return nw.slaveReceive, nw.slaveSend
 }
 
-
-func (nw *Network) MChannels() (<- chan Message, <- chan Message){
-	return nw.masterReceive, nw.masterStatus
+func (nw *Network) MChannels() (<-chan Message, chan<- Message) {
+	return nw.masterReceive, nw.masterSend
 }
-
 
 func Run(nw *Network) {
 	commSend := make(chan communication.CommData)
-	commReceive, commStatus := communication.Run(commSend)
+	commReceive := communication.Run(commSend)
 	nw.LocalIP = communication.GetLocalIP()
-	go sorter(nw, commSend, commReceive, commStatus)
+	go sorter(nw, commSend, commReceive)
 }
 
-
-func sorter(nw *Network, commSend chan<- communication.CommData, commReceive <-chan communication.CommData, commStatus <-chan communication.ConnData) {
-	for{
-		select{
-		case message := <- nw.slaveSend:
-			commMsg := *communication.ResolveMsg(message.Receiver, message.ID, message.Response, message.Content)
+func sorter(nw *Network, commSend chan<- communication.CommData, commReceive <-chan communication.CommData) {
+	for {
+		select {
+		case message := <-nw.slaveSend:
+			commMsg := *communication.ResolveMsg(nw.LocalIP, message.Receiver, message.ID, message.Response, message.Content)
 			commSend <- commMsg
-		case message := <- nw.masterSend:
-			commMsg := *communication.ResolveMsg(message.Receiver, message.ID, message.Response, message.Content)
+		case message := <-nw.masterSend:
+			commMsg := *communication.ResolveMsg(nw.LocalIP, message.Receiver, message.ID, message.Response, message.Content)
 			commSend <- commMsg
-		case message := <- commReceive:
+		case message := <-commReceive:
 			convMsg := commToMsg(&message)
-			if (convMsg.Receiver == nw.LocalIP || convMsg.Receiver == "ALL") {
+			assertMsg(&convMsg)
+			if ((convMsg.Response != cl.Connection) && (convMsg.ID[0] == 'M')) ||
+				((convMsg.Response == cl.Connection) && (convMsg.ID[0] == 'S')) {
 				nw.slaveReceive <- convMsg
 				printInfo("Slave received message", &convMsg)
 			}
-			if convMsg.ID[0] != 'M' {
+			if (((convMsg.ID[0] == 'S') && (convMsg.Response != cl.Connection)) ||
+				((convMsg.ID[0] == 'M') && (convMsg.Response == cl.Connection))) {
 				nw.masterReceive <- convMsg
 				printInfo("Master received message", &convMsg)
-			}
-		case status := <- commStatus:
-			convStatus := connToMsg(&status)
-			if convStatus.ID[0] == 'S'{
-				nw.slaveStatus <- convStatus
-			} else{
-				nw.masterStatus <- convStatus
 			}
 		}
 	}
 }
 
-func commToMsg(message *communication.CommData) (Message){
-	newMsg := Message{
-		Sender: message.SenderIP,
-		Receiver: message.ReceiverIP,
-		ID: message.MsgID,
-		Response: message.DataType,
-		Content: message.DataValue,
+func assertMsg(message *Message) {
+	switch message.Content.(type){
+	case float64:
+		message.Content = int(message.Content.(float64))
+	case map[string]interface{}:
+		tempMap := message.Content.(map[string]interface{})
+		for key, value := range tempMap {
+			switch value.(type){
+			case float64:
+				tempMap[key] = int(value.(float64))
+			}
+		}
+		message.Content = tempMap
 	}
-	return newMsg
 }
 
-func connToMsg(message *communication.ConnData) (Message) {
+func commToMsg(message *communication.CommData) Message {
 	newMsg := Message{
-		Sender: message.SenderIP,
-		Receiver: "Unknown (For now anyway, i think? Maybe not)",
-		ID: message.MsgID,
-		Response: "Connection",
-		Content: message.Status,
+		Sender:   message.SenderIP,
+		Receiver: message.ReceiverIP,
+		ID:       message.MsgID,
+		Response: message.Response,
+		Content:  message.Content,
 	}
 	return newMsg
 }

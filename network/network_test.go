@@ -12,11 +12,11 @@ func TestSend(t *testing.T) {
 	nw := new(Network)
 	nw.Init(slaveSend, masterSend)
 	Run(nw)
-	slaveReceive, slaveStatus := nw.SChannels()
-	masterReceive, masterStatus := nw.MChannels()
+	slaveReceive := nw.SChannels()
+	masterReceive := nw.MChannels()
 	go sender(slaveSend)
 	time.Sleep(time.Second)
-	go receiver(slaveReceive, slaveStatus, masterReceive, masterStatus)
+	go receiver(slaveReceive, masterReceive)
 	time.Sleep(time.Second * 60)
 }
 
@@ -26,10 +26,10 @@ func TestListen(t *testing.T) {
 	nw := new(Network)
 	nw.Init(slaveSend, masterSend)
 	Run(nw)
-	slaveReceive, slaveStatus := nw.SChannels()
-	masterReceive, masterStatus := nw.MChannels()
+	slaveReceive := nw.SChannels()
+	masterReceive := nw.MChannels()
 	time.Sleep(time.Second)
-	go receiver(slaveReceive, slaveStatus, masterReceive, masterStatus)
+	go receiver(slaveReceive, masterReceive)
 	time.Sleep(time.Second * 60)
 }
 
@@ -38,13 +38,14 @@ func sender(slaveSend chan Message) {
 	count := 0
 	for{
 		time.Sleep(time.Second * 5)
-		id := CreateID("Slave")
+		id := CreateID("Master")
 		message := Message{
 			LocalIP(),
 			LocalIP(),
 			id,
 			"Test",
 			count,
+			//map[string]interface{}{"test": 1, "wha": "ekeke"},
 		}
 		count += 1
 		slaveSend <- message
@@ -53,21 +54,15 @@ func sender(slaveSend chan Message) {
 }
 
 
-func receiver(slaveReceive <- chan Message, slaveStatus <- chan Message, masterReceive <- chan Message, masterStatus <- chan Message) {
+func receiver(slaveReceive <- chan Message, masterReceive <- chan Message) {
 	for {
 		select{
 		case message := <- slaveReceive:
 				color.Blue("Message to slave")
 				PrintMessage(&message)
-		case status := <- slaveStatus:
-				color.Blue("Status to slave")
-				PrintMessage(&status)
 		case message := <- masterReceive:
 				color.Blue("Message to master")
 				PrintMessage(&message)
-		case status := <- masterStatus:
-				color.Blue("Status to master")
-				PrintMessage(&status)
 		}
 	}
 }
