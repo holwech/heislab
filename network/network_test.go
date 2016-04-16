@@ -3,38 +3,33 @@ package network
 import (
 	"testing"
 	"time"
-	"github.com/fatih/color"
+	"fmt"
 )
 
+const m = true
+const s = true
+
 func TestSend(t *testing.T) {
-	slaveSend := make(chan Message)
-	masterSend := make(chan Message)
-	nw := new(Network)
-	nw.Init(slaveSend, masterSend)
-	Run(nw)
-	slaveReceive := nw.SChannels()
-	masterReceive := nw.MChannels()
+	nw := InitNetwork()
+	slaveReceive, slaveSend := nw.SChannels()
+	masterReceive, _ := nw.MChannels()
 	go sender(slaveSend)
 	time.Sleep(time.Second)
 	go receiver(slaveReceive, masterReceive)
-	time.Sleep(time.Second * 60)
+	time.Sleep(time.Second * 360)
 }
 
 func TestListen(t *testing.T) {
-	slaveSend := make(chan Message)
-	masterSend := make(chan Message)
-	nw := new(Network)
-	nw.Init(slaveSend, masterSend)
-	Run(nw)
-	slaveReceive := nw.SChannels()
-	masterReceive := nw.MChannels()
+	nw := InitNetwork()
+	slaveReceive, _ := nw.SChannels()
+	masterReceive, _ := nw.MChannels()
 	time.Sleep(time.Second)
 	go receiver(slaveReceive, masterReceive)
-	time.Sleep(time.Second * 60)
+	time.Sleep(time.Second * 360)
 }
 
 
-func sender(slaveSend chan Message) {
+func sender(slaveSend chan<- Message) {
 	count := 0
 	for{
 		time.Sleep(time.Second * 5)
@@ -49,7 +44,7 @@ func sender(slaveSend chan Message) {
 		}
 		count += 1
 		slaveSend <- message
-		color.Red("DEBUG: Sending %d\n", count)
+		fmt.Printf("DEBUG: Sending %d\n", count)
 	}
 }
 
@@ -58,10 +53,10 @@ func receiver(slaveReceive <- chan Message, masterReceive <- chan Message) {
 	for {
 		select{
 		case message := <- slaveReceive:
-				color.Blue("Message to slave")
+				fmt.Println("Message to slave")
 				PrintMessage(&message)
 		case message := <- masterReceive:
-				color.Blue("Message to master")
+				fmt.Println("Message to master")
 				PrintMessage(&message)
 		}
 	}

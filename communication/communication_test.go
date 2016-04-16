@@ -10,6 +10,20 @@ func TestSend(t *testing.T) {
 	sendCh := make(chan CommData)
 	receiveCh := Run(sendCh)
 	go RunPrintMsg(receiveCh)
+	count := 0
+	for{
+		msgID := uuid.NewV4()
+		msg := ResolveMsg(GetLocalIP(), "129.241.187.140", msgID.String(), "Test", count) 
+		sendCh <- *msg
+		time.Sleep(10 * time.Second)
+		count += 1
+	}
+}
+
+func TestSendAndListen(t *testing.T) {
+	sendCh := make(chan CommData)
+	receiveCh := Run(sendCh)
+	go RunPrintMsg(receiveCh)
 	time.Sleep(1 * time.Second)
 	count := 0
 	for{
