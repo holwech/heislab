@@ -45,6 +45,7 @@ func sender(slaveSend chan Message) {
 			id,
 			"Test",
 			count,
+			//map[string]interface{}{"test": 1, "wha": "ekeke"},
 		}
 		count += 1
 		slaveSend <- message

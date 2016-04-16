@@ -18,9 +18,25 @@ type OuterOrder struct {
 	Floor, Direction int
 }
 
-func InitHardware() {
+func InitElevator() (<-chan InnerOrder, <-chan OuterOrder, <-chan int) {
 	C.elev_init()
+	innerChan := ListenInnerPanel()
+	outerChan := ListenOuterPanel()
+	floorChan := ListenFloorSensor()
+
+	//Drive down to first floor
+	currentFloor := <-floorChan
+	if currentFloor != 0 {
+		SetMotorDirection(-1)
+		for currentFloor != 0 {
+			currentFloor = <-floorChan
+		}
+		SetMotorDirection(0)
+	}
+
+	return innerChan, outerChan, floorChan
 }
+
 
 func SetMotorDirection(direction int) {
 	C.elev_set_motor_direction(C.int(direction))

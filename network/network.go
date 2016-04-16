@@ -2,13 +2,13 @@ package network
 
 import (
 	"fmt"
-
+	"reflect"
 	"github.com/holwech/heislab/cl"
 	"github.com/holwech/heislab/communication"
 	"github.com/satori/go.uuid"
 )
 
-const info = true
+const info = false
 
 type Message struct {
 	Sender, Receiver, ID, Response string
@@ -50,6 +50,13 @@ func LocalIP() string {
 	return communication.GetLocalIP()
 }
 
+func InitNetwork(slaveSend chan Message, masterSend chan Message) *Network {
+	nw := new(Network)
+	nw.Init(slaveSend, masterSend)
+	Run(nw)
+	return nw
+}
+
 func (nw *Network) Init(slaveSend chan Message, masterSend chan Message) {
 	nw.slaveReceive = make(chan Message)
 	nw.slaveSend = slaveSend
@@ -83,6 +90,11 @@ func sorter(nw *Network, commSend chan<- communication.CommData, commReceive <-c
 			commSend <- commMsg
 		case message := <-commReceive:
 			convMsg := commToMsg(&message)
+			fmt.Printf("Object type: %v\n", reflect.TypeOf(convMsg))
+			fmt.Printf("Content type %v\n", reflect.TypeOf(convMsg.Content))
+			assertMsg(&convMsg)
+			fmt.Printf("Object type: %v\n", reflect.TypeOf(convMsg))
+			fmt.Printf("Content type %v\n", reflect.TypeOf(convMsg.Content))
 			if ((convMsg.Response != cl.Connection) && (convMsg.ID[0] == 'M')) ||
 				((convMsg.Response == cl.Connection) && (convMsg.ID[0] == 'S')) {
 				nw.slaveReceive <- convMsg
@@ -92,6 +104,20 @@ func sorter(nw *Network, commSend chan<- communication.CommData, commReceive <-c
 				((convMsg.ID[0] == 'M') && (convMsg.Response == cl.Connection)) {
 				nw.masterReceive <- convMsg
 				printInfo("Master received message", &convMsg)
+			}
+		}
+	}
+}
+
+func assertMsg(message *Message) {
+	switch objType :=  message.Content.(type){
+	case float64:
+		message.Content = int(message.Content.(float64))
+	case map[string]interface{}:
+		message.Content = message.Content.(map[string]interface{})
+		for key, value := range message.Content {
+			if value.(type) == float64 {
+				message.Content[key] = int(value.(float64))
 			}
 		}
 	}

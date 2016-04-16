@@ -9,37 +9,13 @@ import (
 	"github.com/holwech/heislab/network"
 )
 
-func InitElevator() (<-chan driver.InnerOrder, <-chan driver.OuterOrder, <-chan int) {
-	driver.InitHardware()
-	innerChan := driver.ListenInnerPanel()
-	outerChan := driver.ListenOuterPanel()
-	floorChan := driver.ListenFloorSensor()
 
-	//Drive down to first floor
-	currentFloor := <-floorChan
-	if currentFloor != 0 {
-		driver.SetMotorDirection(-1)
-		for currentFloor != 0 {
-			currentFloor = <-floorChan
-		}
-		driver.SetMotorDirection(0)
-	}
-
-	return innerChan, outerChan, floorChan
-}
-
-func InitNetwork(slaveSend chan network.Message, masterSend chan network.Message) *network.Network {
-	nw := new(network.Network)
-	nw.Init(slaveSend, masterSend)
-	network.Run(nw)
-	return nw
-}
 
 func Run() {
-	innerChan, outerChan, floorChan := InitElevator()
+	innerChan, outerChan, floorChan := driver.InitElevator()
 	slaveSend := make(chan network.Message)
 	masterSend := make(chan network.Message)
-	nw := InitNetwork(slaveSend, masterSend)
+	nw := network.InitNetwork(slaveSend, masterSend)
 	slaveReceive := nw.SChannels()
 	go master.Run(nw, masterSend)
 	doorTimer := time.NewTimer(3 * time.Second)
