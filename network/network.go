@@ -7,7 +7,9 @@ import (
 	"github.com/satori/go.uuid"
 )
 
-const info = true
+const info = false
+const printAll = true
+const conn = false
 
 type Message struct {
 	Sender, Receiver, ID, Response string
@@ -20,7 +22,6 @@ type Network struct {
 }
 
 func printInfo(comment string, message *Message) {
-	conn := true
 	if (info && message.Response != cl.Connection) || conn {
 		fmt.Println("NETW: " + comment)
 		PrintMessage(message)
@@ -97,6 +98,9 @@ func sorter(nw *Network, commSend chan<- communication.CommData, commReceive <-c
 		case message := <-commReceive:
 			convMsg := commToMsg(&message)
 			assertMsg(&convMsg)
+			if printAll {
+				PrintMessage(convMsg)
+			}
 			if ((convMsg.Response != cl.Connection) && (convMsg.ID[0] == 'M') &&
 					(convMsg.Receiver == nw.LocalIP)) ||
 				((convMsg.Response == cl.Connection) && (convMsg.ID[0] == 'S')) {
