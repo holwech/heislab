@@ -97,14 +97,15 @@ func sorter(nw *Network, commSend chan<- communication.CommData, commReceive <-c
 		case message := <-commReceive:
 			convMsg := commToMsg(&message)
 			assertMsg(&convMsg)
-			if ((convMsg.Response != cl.Connection) && (convMsg.ID[0] == 'M')) ||
+			if ((convMsg.Response != cl.Connection) && (convMsg.ID[0] == 'M') &&
+					(convMsg.Receiver == nw.LocalIP)) ||
 				((convMsg.Response == cl.Connection) && (convMsg.ID[0] == 'S')) {
 				nw.slaveReceive <- convMsg
 				printInfo("Slave received message", &convMsg)
 			}
 			if (((convMsg.ID[0] == 'S') && (convMsg.Response != cl.Connection)) ||
-				((convMsg.ID[0] == 'M') && (convMsg.Response == cl.Connection))) &&
-				 (convMsg.Sender == nw.LocalIP) {
+				  ((convMsg.ID[0] == 'M') && (convMsg.Response == cl.Connection) &&
+				   (convMsg.Receiver == nw.LocalIP))) {
 				nw.masterReceive <- convMsg
 				printInfo("Master received message", &convMsg)
 			}
