@@ -7,9 +7,9 @@ import (
 	"github.com/satori/go.uuid"
 )
 
-const info = false
-const printAll = true
-const conn = false
+const info = true
+const printAll = false
+const conn = true
 
 type Message struct {
 	Sender, Receiver, ID, Response string
@@ -101,9 +101,9 @@ func sorter(nw *Network, commSend chan<- communication.CommData, commReceive <-c
 			if printAll {
 				PrintMessage(&convMsg)
 			}
-			if ((convMsg.Response != cl.Connection) && (convMsg.ID[0] == 'M') &&
-					(convMsg.Receiver == nw.LocalIP)) ||
-				((convMsg.Response == cl.Connection) && (convMsg.ID[0] == 'S')) {
+			if convMsg.Response != cl.Connection && convMsg.ID[0] == 'M' &&
+				(convMsg.Receiver == nw.LocalIP || convMsg.Receiver == cl.All) ||
+				(convMsg.Response == cl.Connection && convMsg.ID[0] == 'S') {
 				nw.slaveReceive <- convMsg
 				printInfo("Slave received message", &convMsg)
 			}
