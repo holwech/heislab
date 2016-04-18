@@ -15,12 +15,13 @@ func InitMaster(nw *network.Network) {
 //Listen to inputs from slaves and send commands back
 //Will the behaviour and order list be the same on all masters running?
 func Run(nw *network.Network) {
-	inputChan, sendMaster := nw.MChannels()
+	receiveMaster, sendMaster := nw.MChannels()
 	sys := orders.NewSystem()
-	isActive := false
+	isActiveMaster := false
+
 	for {
 		select {
-		case message := <-inputChan:
+		case message := <-receiveMaster:
 			switch message.Response {
 			case cl.InnerOrder:
 				content := message.Content.(map[string]interface{})
@@ -43,24 +44,24 @@ func Run(nw *network.Network) {
 			case cl.Timeout:
 				//Future work - check connected elevators
 				sys.RemoveElevator(message.Sender)
-				
+
 			case cl.Startup:
-				if isActive {
+				if isActiveMaster {
 					ping := network.Message{nw.LocalIP, message.Sender, network.CreateID(cl.Master), cl.JoinMaster, ""}
 					sendMaster <- ping
 				}
 				sys.AddElevator(message.Sender)
 			case cl.SetMaster:
-				isActive = true
+				isActiveMaster = true
 			}
 			sys.AssignOrders()
 			sys.CheckNewCommand()
 			fmt.Println(sys)
-		case message := <-sys.Commands:
-			if isActive {
-				message.Sender = nw.LocalIP
-				message.ID = network.CreateID(cl.Master)
-				sendMaster <- message
+		case command := <-sys.Commands:
+			if isActiveMaster {
+				command.Sender = nw.LocalIP
+				command.ID = network.CreateID(cl.Master)
+				sendMaster <- command
 			}
 		}
 	}

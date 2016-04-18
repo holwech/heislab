@@ -95,7 +95,7 @@ func (sys *System) RemoveElevator(elevatorIP string) bool {
 	return exists
 }
 
-func (sys *System) NotifyInnerOrder(elevatorIP string, floor int){
+func (sys *System) NotifyInnerOrder(elevatorIP string, floor int) {
 	elevator, inSystem := sys.Elevators[elevatorIP]
 
 	if inSystem {
@@ -104,8 +104,8 @@ func (sys *System) NotifyInnerOrder(elevatorIP string, floor int){
 			sys.Elevators[elevatorIP] = elevator
 		}
 		//if elevator.Floor != floor{
-			cmdLight := network.Message{"", elevatorIP, "", cl.LightOnInner, floor}
-			sys.Commands <- cmdLight
+		cmdLight := network.Message{"", elevatorIP, "", cl.LightOnInner, floor}
+		sys.Commands <- cmdLight
 		//}
 	}
 }
@@ -124,7 +124,7 @@ func (sys *System) NotifyOuterOrder(floor, direction int) {
 
 func (sys *System) RemoveOrder(elevatorIP string, floor int) {
 	elevator, inSystem := sys.Elevators[elevatorIP]
-	if inSystem{
+	if inSystem {
 		elevator.Orders[floor] = None
 		sys.Elevators[elevatorIP] = elevator
 	}
@@ -133,15 +133,15 @@ func (sys *System) RemoveOrder(elevatorIP string, floor int) {
 func (sys *System) NotifyDoorClosed(elevatorIP string) {
 	elevator, inSystem := sys.Elevators[elevatorIP]
 	if inSystem {
-		if elevator.hasMoreOrders(){
-			sys.SetBehaviour(elevatorIP,AwaitingCommand)
-		}else{
-			sys.SetBehaviour(elevatorIP,Idle)
+		if elevator.hasMoreOrders() {
+			sys.SetBehaviour(elevatorIP, AwaitingCommand)
+		} else {
+			sys.SetBehaviour(elevatorIP, Idle)
 		}
 	}
 }
 
-func (elev *ElevatorState) hasMoreOrders() bool{
+func (elev *ElevatorState) hasMoreOrders() bool {
 	for floor := 0; floor < 4; floor++ {
 		if elev.Orders[floor] != None {
 			return true

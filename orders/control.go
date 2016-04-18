@@ -5,7 +5,7 @@ import (
 	"github.com/holwech/heislab/network"
 )
 
-const maxCost int = 100000;
+const maxCost int = 100000
 
 func (sys *System) NotifyFloor(elevatorIP string, floor int) {
 	elevator, inSystem := sys.Elevators[elevatorIP]
@@ -17,7 +17,7 @@ func (sys *System) NotifyFloor(elevatorIP string, floor int) {
 			command.Receiver = elevatorIP
 			command.Response = cl.Stop
 			sys.Commands <- command
-			
+
 			commandLight.Receiver = cl.All
 			if elevator.Orders[floor] == OuterDown {
 				commandLight.Response = cl.LightOffOuterDown
@@ -31,7 +31,7 @@ func (sys *System) NotifyFloor(elevatorIP string, floor int) {
 			sys.Commands <- commandLight
 
 			sys.RemoveOrder(elevatorIP, floor)
-			sys.SetBehaviour(elevatorIP, DoorOpen)		
+			sys.SetBehaviour(elevatorIP, DoorOpen)
 		}
 		//Update current floor and stop if order in floor
 		elevator.Floor = floor
@@ -39,41 +39,41 @@ func (sys *System) NotifyFloor(elevatorIP string, floor int) {
 	}
 }
 
-func intAbs(num int) int{
-	if num < 0{
+func intAbs(num int) int {
+	if num < 0 {
 		return -num
-	}else{
+	} else {
 		return num
 	}
 }
 
-func (elev *ElevatorState) CalculateCost(floor, direction int) int{
-	switch elev.CurrentBehaviour{
+func (elev *ElevatorState) CalculateCost(floor, direction int) int {
+	switch elev.CurrentBehaviour {
 	case Idle:
-		return 100*intAbs(elev.Floor - floor)
+		return 100 * intAbs(elev.Floor-floor)
 	case Moving:
 		if (elev.Direction == 1 && elev.Floor < floor) ||
-		(elev.Direction == -1 && elev.Floor > floor){
-			return 10*intAbs(elev.Floor - floor)
-		}else{
+			(elev.Direction == -1 && elev.Floor > floor) {
+			return 10 * intAbs(elev.Floor-floor)
+		} else {
 			return maxCost
 		}
 	case DoorOpen:
-		if elev.hasMoreOrders(){ 
+		if elev.hasMoreOrders() {
 			if (elev.Direction == 1 && elev.Floor < floor) ||
-			(elev.Direction == -1 && elev.Floor > floor){
-				return 15*intAbs(elev.Floor - floor)
-			}else{
+				(elev.Direction == -1 && elev.Floor > floor) {
+				return 15 * intAbs(elev.Floor-floor)
+			} else {
 				return maxCost
 			}
-		}else{
-			return 100*intAbs(elev.Floor - floor)
+		} else {
+			return 100 * intAbs(elev.Floor-floor)
 		}
 	case AwaitingCommand:
-	if (elev.Direction == 1 && elev.Floor < floor) ||
-		(elev.Direction == -1 && elev.Floor > floor){
-			return 12*intAbs(elev.Floor - floor)
-		}else{
+		if (elev.Direction == 1 && elev.Floor < floor) ||
+			(elev.Direction == -1 && elev.Floor > floor) {
+			return 12 * intAbs(elev.Floor-floor)
+		} else {
 			return maxCost
 		}
 	default:
@@ -85,37 +85,37 @@ func (sys *System) AssignOrders() {
 	for floor := 0; floor < 4; floor++ {
 		if sys.UnhandledOrdersUp[floor] {
 			var minCost int = maxCost
-			var minCostElevIP string 
+			var minCostElevIP string
 			var minCostElev ElevatorState
 			for elevIP := range sys.Elevators {
 				elev := sys.Elevators[elevIP]
-				cost := elev.CalculateCost(floor,1)
-				if cost < minCost{
-					minCost  = cost
+				cost := elev.CalculateCost(floor, 1)
+				if cost < minCost {
+					minCost = cost
 					minCostElev = elev
 					minCostElevIP = elevIP
 				}
 			}
-			if minCost < maxCost{
+			if minCost < maxCost {
 				minCostElev.Orders[floor] = OuterUp
 				sys.Elevators[minCostElevIP] = minCostElev
 				sys.UnhandledOrdersUp[floor] = false
+			}
 		}
-	}
 		if sys.UnhandledOrdersDown[floor] {
 			var minCost int = maxCost
-			var minCostElevIP string 
+			var minCostElevIP string
 			var minCostElev ElevatorState
 			for elevIP := range sys.Elevators {
 				elev := sys.Elevators[elevIP]
-				cost := elev.CalculateCost(floor,-1)
-				if cost < minCost{
-					minCost  = cost
+				cost := elev.CalculateCost(floor, -1)
+				if cost < minCost {
+					minCost = cost
 					minCostElev = elev
 					minCostElevIP = elevIP
 				}
 			}
-			if minCost < maxCost{
+			if minCost < maxCost {
 				minCostElev.Orders[floor] = OuterDown
 				sys.Elevators[minCostElevIP] = minCostElev
 				sys.UnhandledOrdersDown[floor] = false
@@ -129,15 +129,24 @@ Assumes that an elevator has only been assigned orders
 That are on its current path, e.g. if an elevator is moving up
 it has no orders below it */
 func (sys *System) CheckNewCommand() {
-	var command network.Message
 	for elevIP := range sys.Elevators {
 		elev := sys.Elevators[elevIP]
 		if elev.CurrentBehaviour == DoorOpen {
-			continue
+			if elev.Orders[elev.Floor] != None {
+				var command network.Message
+				command.Response = cl.Stop
+				command.Receiver = elevIP
+				sys.RemoveOrder(elevIP, elev.Floor)
+				sys.SetBehaviour(elevIP, DoorOpen)
+				sys.Commands <- command
+				continue
+			}
 		}
 		for floor := 0; floor < 4; floor++ {
 			if elev.Orders[floor] != None &&
 				(elev.CurrentBehaviour == Idle || elev.CurrentBehaviour == AwaitingCommand) {
+				var command network.Message
+
 				command.Receiver = elevIP
 				if floor < elev.Floor {
 					command.Response = cl.Down
