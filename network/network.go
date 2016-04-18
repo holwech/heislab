@@ -7,8 +7,8 @@ import (
 	"github.com/satori/go.uuid"
 )
 
-const info = false
-const printAll = true
+const info = true
+const printAll = false
 const conn = false
 
 type Message struct {
@@ -107,9 +107,9 @@ func sorter(nw *Network, commSend chan<- communication.CommData, commReceive <-c
 				nw.slaveReceive <- convMsg
 				printInfo("Slave received message", &convMsg)
 			}
-			if (((convMsg.ID[0] == 'S') && (convMsg.Response != cl.Connection)) ||
-				  ((convMsg.ID[0] == 'M') && (convMsg.Response == cl.Connection) &&
-				   (convMsg.Receiver == nw.LocalIP))) {
+			if ((convMsg.ID[0] == 'S') && (convMsg.Response != cl.Connection)) ||
+				((convMsg.ID[0] == 'M') && (convMsg.Response == cl.Connection) &&
+					(convMsg.Receiver == nw.LocalIP)) {
 				nw.masterReceive <- convMsg
 				printInfo("Master received message", &convMsg)
 			}
@@ -118,13 +118,13 @@ func sorter(nw *Network, commSend chan<- communication.CommData, commReceive <-c
 }
 
 func assertMsg(message *Message) {
-	switch message.Content.(type){
+	switch message.Content.(type) {
 	case float64:
 		message.Content = int(message.Content.(float64))
 	case map[string]interface{}:
 		tempMap := message.Content.(map[string]interface{})
 		for key, value := range tempMap {
-			switch value.(type){
+			switch value.(type) {
 			case float64:
 				tempMap[key] = int(value.(float64))
 			}

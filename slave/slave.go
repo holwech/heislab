@@ -1,16 +1,16 @@
 package slave
 
 import (
-	"time"
 	"github.com/holwech/heislab/cl"
 	"github.com/holwech/heislab/driver"
 	"github.com/holwech/heislab/master"
 	"github.com/holwech/heislab/network"
+	"time"
 )
 
 type Slave struct {
 	DoorTimer, StartupTimer, MotorTimer *time.Timer
-	MasterID, EngineState string
+	MasterID, EngineState               string
 }
 
 func (sl *Slave) Init() {
@@ -37,7 +37,7 @@ func Run() {
 	sl := initSlave()
 	slaveReceive, slaveSend := nw.SChannels()
 	sl.StartupTimer.Reset(50 * time.Millisecond)
-	send(nw.LocalIP, "", cl.Startup, time.Now(), slaveSend)
+	send(nw.LocalIP, "", cl.System, cl.Startup, slaveSend)
 	for {
 		select {
 		case innerOrder := <-innerChan:
@@ -61,7 +61,7 @@ func Run() {
 		case <-sl.StartupTimer.C:
 			send(nw.LocalIP, "", cl.System, cl.SetMaster, slaveSend)
 			sl.MasterID = nw.LocalIP
-		case <- sl.MotorTimer.C:
+		case <-sl.MotorTimer.C:
 			send(sl.MasterID, "", cl.System, cl.EngineFail, slaveSend)
 		}
 	}
@@ -100,7 +100,7 @@ func handleInput(sl *Slave, nw *network.Network, message network.Message, slaveS
 			sl.MasterID = nw.LocalIP
 		}
 	case cl.System:
-		switch message.Content{
+		switch message.Content {
 		case cl.JoinMaster:
 			sl.StartupTimer.Stop()
 			sl.MasterID = message.Sender
