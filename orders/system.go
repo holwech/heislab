@@ -5,28 +5,6 @@ import (
 	"github.com/holwech/heislab/network"
 )
 
-/*WANT:
-
-
-handle orders:
--needs to chose which elevator is going to handle an order
--needs to know which elevator is close and idle or going same direction
--elevator states should be kept in elevator package?
--Do we even need an elevator package? Part of slave?
--pass elevator states to order handling?
--in that case, should be read only
-
-
-*/
-
-/*
-After some thinking-consulting:
-orders should be kept in elevator module as inner orders could
-be considered part of elevator state
-and
-outer orders is global
-*/
-
 type Behaviour int
 
 const (
@@ -36,27 +14,41 @@ const (
 	AwaitingCommand
 )
 
-type Order int
-
-const (
-	None Order = iota
-	Inner
-	OuterUp
-	OuterDown
-)
 
 type ElevatorState struct {
 	Floor            int //Previous active floor
 	Direction        int
 	CurrentBehaviour Behaviour
-	Orders           [4]Order
+	InnerOrders           [4]bool
+	OuterOrdersUp           [4]bool
+	OuterOrdersDown         [4]bool
+
 }
+
 
 type System struct {
 	Elevators           map[string]ElevatorState
 	UnhandledOrdersUp   [4]bool
 	UnhandledOrdersDown [4]bool
 	Commands            chan network.Message
+}
+
+func (elev *ElevatorState) hasOrderAtFloor(floor int) bool {
+	if elev.InnerOrders[floor]||
+	elev.OuterOrdersDown[floor]||
+	elev.OuterOrdersUp[floor]{
+		return true
+	}
+	return false
+}
+
+func (elev *ElevatorState) hasMoreOrders() bool {
+	for floor := 0; floor < 4; floor++ {
+		if elev.hasOrderAtFloor(floor){
+			return true
+		}
+	}
+	return false
 }
 
 func NewSystem() *System {
@@ -95,58 +87,19 @@ func (sys *System) RemoveElevator(elevatorIP string) bool {
 	return exists
 }
 
-func (sys *System) NotifyInnerOrder(elevatorIP string, floor int) {
-	elevator, inSystem := sys.Elevators[elevatorIP]
 
-	if inSystem {
-		if elevator.Orders[floor] == None {
-			elevator.Orders[floor] = Inner
-			sys.Elevators[elevatorIP] = elevator
-		}
-		cmdLight := network.Message{"", elevatorIP, "", cl.LightOnInner, floor}
-		sys.Commands <- cmdLight
-	}
-}
-
-func (sys *System) NotifyOuterOrder(floor, direction int) {
-	if direction == -1 {
-		sys.UnhandledOrdersDown[floor] = true
-		cmdLight := network.Message{"", cl.All, "", cl.LightOnOuterDown, floor}
-		sys.Commands <- cmdLight
-	} else if direction == 1 {
-		sys.UnhandledOrdersUp[floor] = true
-		cmdLight := network.Message{"", cl.All, "", cl.LightOnOuterUp, floor}
-		sys.Commands <- cmdLight
-	}
-}
-
-func (sys *System) RemoveOrder(elevatorIP string, floor int) {
+func (sys *System) ClearOrder(elevatorIP string, floor int) {
 	elevator, inSystem := sys.Elevators[elevatorIP]
 	if inSystem {
-		elevator.Orders[floor] = None
+		elevator.InnerOrders[floor] = false
+		elevator.OuterOrdersDown[floor] = false
+		elevator.OuterOrdersUp[floor] = false
 		sys.Elevators[elevatorIP] = elevator
 	}
 }
 
-func (sys *System) NotifyDoorClosed(elevatorIP string) {
-	elevator, inSystem := sys.Elevators[elevatorIP]
-	if inSystem {
-		if elevator.hasMoreOrders() {
-			sys.SetBehaviour(elevatorIP, AwaitingCommand)
-		} else {
-			sys.SetBehaviour(elevatorIP, Idle)
-		}
-	}
-}
 
-func (elev *ElevatorState) hasMoreOrders() bool {
-	for floor := 0; floor < 4; floor++ {
-		if elev.Orders[floor] != None {
-			return true
-		}
-	}
-	return false
-}
+
 
 func (sys *System) SetBehaviour(elevatorIP string, behaviour Behaviour) {
 	elevator, inSystem := sys.Elevators[elevatorIP]
