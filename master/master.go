@@ -43,15 +43,17 @@ func Run(nw *network.Network) {
 			case cl.Timeout:
 				//Future work - check connected elevators
 				sys.RemoveElevator(message.Sender)
-				
-			case cl.Startup:
-				if isActive {
-					ping := network.Message{nw.LocalIP, message.Sender, network.CreateID(cl.Master), cl.JoinMaster, ""}
-					sendMaster <- ping
+			case cl.System:
+				switch message.Content{
+				case cl.Startup:
+					if isActive {
+						ping := network.Message{nw.LocalIP, message.Sender, network.CreateID(cl.Master), cl.JoinMaster, ""}
+						sendMaster <- ping
+					}
+					sys.AddElevator(message.Sender)
+				case cl.SetMaster:
+					isActive = true
 				}
-				sys.AddElevator(message.Sender)
-			case cl.SetMaster:
-				isActive = true
 			}
 			sys.AssignOrders()
 			sys.CheckNewCommand()

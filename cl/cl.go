@@ -20,6 +20,9 @@ var Floor string = "FLOOR"
 var DoorClosed string = "DOORCLOSED"
 
 // === System status
+// Response
+var System string = "SYSTEM"
+// Content
 var Master string = "MASTER"
 var Slave string = "SLAVE"
 var Ping string = "PING"
@@ -43,4 +46,4 @@ var Connection string = "CONNECTION"
 var OK string = "OK"
 var Timeout string = "TIMEOUT"
 var Sent string = "SENT"
-var Failed string = "Shame! Shame! Shame!"
+var Failed string = "FAILED"
