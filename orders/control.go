@@ -176,18 +176,88 @@ func (sys *System) CheckNewCommand() {
 		}
 	}
 }
+//------------v2
+func (sys *System) AssignOrders2() {
+	for floor := 0; floor < 4; floor++ {
+		if sys.UnhandledOrdersUp[floor] {
+			var minCost int = MAXCOST
+			var minCostElevIP string
+			var minCostElev ElevatorState
+			for elevIP := range sys.Elevators {
+				elev := sys.Elevators[elevIP]
+				cost := elev.CalculateCost(floor, 1)
+				if cost < minCost {
+					minCost = cost
+					minCostElev = elev
+					minCostElevIP = elevIP
+				}
+			}
+			if minCost < MAXCOST {
+				minCostElev.Orders[floor] = OuterUp
+				if minCostElev.CurrentBehaviour == Idle{
+					sys.SetBehaviour(minCostElevIP,AwaitingCommand)
+				}
+				sys.Elevators[minCostElevIP] = minCostElev
+				sys.UnhandledOrdersUp[floor] = false
+			}
+		}
+		if sys.UnhandledOrdersDown[floor] {
+			var minCost int = MAXCOST
+			var minCostElevIP string
+			var minCostElev ElevatorState
+			for elevIP := range sys.Elevators {
+				elev := sys.Elevators[elevIP]
+				cost := elev.CalculateCost(floor, -1)
+				if cost < minCost {
+					minCost = cost
+					minCostElev = elev
+					minCostElevIP = elevIP
+				}
+			}
+			if minCost < MAXCOST {
+				minCostElev.Orders[floor] = OuterDown
+				if minCostElev.CurrentBehaviour == Idle{
+					sys.SetBehaviour(minCostElevIP,AwaitingCommand)
+				}
+				sys.Elevators[minCostElevIP] = minCostElev
+				sys.UnhandledOrdersDown[floor] = false
+			}
+		}
+	}
+}
 
-func (sys *System) CommandElevators() {
+func (sys *System) CommandConnectedElevators() {
 	for elevIP, elev := range sys.Elevators {
 		switch elev.CurrentBehaviour {
 		case Idle:
-			if elev.Orders[elev.Floor] {
-				sys.StopElevator(elevIP)
-				sys.RemoveOrder(elevatorIP, elev.Floor)
-			}
 		case Moving:
 		case DoorOpen:
+			if elev.Orders[elev.Floor] != None{
+				sys.GenerateStopCommands(elevIP)
+				sys.RemoveOrder(elevIP, elev.Floor)
+				sys.SetBehaviour(elevIP, DoorOpen)
+			}
 		case AwaitingCommand:
+			if elev.Orders[elev.Floor] != None{
+				sys.GenerateStopCommands(elevIP)
+				sys.RemoveOrder(elevIP, elev.Floor)
+				sys.SetBehaviour(elevIP, DoorOpen)
+			}else{
+				for floor := 0; floor < 4; floor++ {
+					var command network.Message
+					command.Receiver = elevIP
+					if elev.Floor > floor {
+						command.Response = cl.Down
+						sys.SetDirection(elevIP, -1)
+						sys.SetBehaviour(elevIP, Moving)
+					}else if elev.Floor < floor {
+						command.Response = cl.Up
+						sys.SetDirection(elevIP, 1)
+						sys.SetBehaviour(elevIP, Moving)
+					}
+					sys.Commands <- command
+				}
+			}
 		}
 	}
 }
@@ -200,7 +270,7 @@ func (sys *System) NotifyFloor2(elevatorIP string, floor int) {
 	}
 }
 
-func (sys *System) StopElevator(elevIP string) {
+func (sys *System) GenerateStopCommands(elevIP string) {
 	elevator = sys.Elevators[elevIP]
 	var command network.Message
 	command.Receiver = elevatorIP
@@ -220,6 +290,4 @@ func (sys *System) StopElevator(elevIP string) {
 	commandLight.Receiver = elevatorIP
 	commandLight.Response = cl.LightOffInner
 	sys.Commands <- commandLight
-
-	sys.SetBehaviour(elevatorIP, DoorOpen)
 }
