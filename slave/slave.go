@@ -1,17 +1,17 @@
-package main
+package slave
 
 import (
-	"time"
-"fmt"
+	"fmt"
 	"github.com/holwech/heislab/cl"
 	"github.com/holwech/heislab/driver"
 	"github.com/holwech/heislab/master"
 	"github.com/holwech/heislab/network"
+	"time"
 )
 
 type Slave struct {
 	DoorTimer, StartupTimer *time.Timer
-	MasterID string
+	MasterID                string
 }
 
 func (sl *Slave) Init() {
@@ -45,12 +45,12 @@ func Run() {
 			send(sl.MasterID, cl.OuterOrder, outerOrder, slaveSend)
 		case newFloor := <-floorChan:
 			send(sl.MasterID, cl.Floor, newFloor, slaveSend)
-		case <- sl.DoorTimer.C:
+		case <-sl.DoorTimer.C:
 			driver.SetDoorLamp(0)
 			send(sl.MasterID, cl.DoorClosed, "", slaveSend)
 		case message := <-slaveReceive:
 			handleInput(sl, nw, message, slaveSend)
-		case <- sl.StartupTimer.C:
+		case <-sl.StartupTimer.C:
 			send(nw.LocalIP, cl.SetMaster, time.Now(), slaveSend)
 			sl.MasterID = nw.LocalIP
 		}
@@ -83,7 +83,7 @@ func handleInput(sl *Slave, nw *network.Network, message network.Message, slaveS
 	case cl.LightOffOuterDown:
 		driver.SetOuterPanelLamp(-1, message.Content.(int), 0)
 	case cl.Connection:
-		switch message.Content{
+		switch message.Content {
 		case cl.Failed:
 			//Assumes lost connection on timeout. This will be changed later
 			send(nw.LocalIP, cl.SetMaster, time.Now(), slaveSend)
@@ -100,8 +100,4 @@ func send(masterID string, response string, content interface{}, slaveSend chan<
 		Content:  content,
 	}
 	slaveSend <- message
-}
-
-func main() {
-	Run()
 }
