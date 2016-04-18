@@ -36,7 +36,7 @@ func sender(slaveSend chan<- Message) {
 		time.Sleep(time.Second * 5)
 		message := Message{
 			LocalIP(),
-			"129.241.187.140",
+      LocalIP(),
 			CreateID(cl.Master),
 			"Test",
 			count,

@@ -7,13 +7,12 @@ import (
 )
 
 func TestSend(t *testing.T) {
-	sendCh := make(chan CommData)
-	receiveCh := Run(sendCh)
+	receiveCh, sendCh := Init()
 	go RunPrintMsg(receiveCh)
 	count := 0
 	for{
 		msgID := uuid.NewV4()
-		msg := ResolveMsg(GetLocalIP(), "129.241.187.140", msgID.String(), "Test", count) 
+		msg := ResolveMsg(GetLocalIP(), GetLocalIP(), msgID.String(), "Test", count) 
 		sendCh <- *msg
 		time.Sleep(10 * time.Second)
 		count += 1
@@ -21,8 +20,7 @@ func TestSend(t *testing.T) {
 }
 
 func TestSendAndListen(t *testing.T) {
-	sendCh := make(chan CommData)
-	receiveCh := Run(sendCh)
+	receiveCh, sendCh := Init()
 	go RunPrintMsg(receiveCh)
 	time.Sleep(1 * time.Second)
 	count := 0
@@ -37,8 +35,7 @@ func TestSendAndListen(t *testing.T) {
 
 
 func TestListen(t *testing.T) {
-	sendCh := make(chan CommData)
-	receiveCh := Run(sendCh)
+	receiveCh, _ := Init()
 	go RunPrintMsg(receiveCh)
 	time.Sleep(1 * time.Second)
 	count := 0
