@@ -1,6 +1,7 @@
 package slave
 
 import (
+	"fmt"
 	"github.com/holwech/heislab/cl"
 	"github.com/holwech/heislab/driver"
 	"github.com/holwech/heislab/master"
@@ -50,7 +51,10 @@ func Run() {
 				sl.MotorTimer.Reset(6 * time.Second)
 				if sl.EngineState == cl.EngineFail {
 					sl.EngineState = cl.EngineOK
+					fmt.Println("the last step?")
 					send(sl.MasterID, "", cl.System, cl.EngineOK, slaveSend)
+					fmt.Println("the last step2?")
+
 				}
 			}
 		case <-sl.DoorTimer.C:
@@ -62,6 +66,7 @@ func Run() {
 			send(nw.LocalIP, "", cl.System, cl.SetMaster, slaveSend)
 			sl.MasterID = nw.LocalIP
 		case <-sl.MotorTimer.C:
+			sl.EngineState = cl.EngineFail
 			send(sl.MasterID, "", cl.System, cl.EngineFail, slaveSend)
 		}
 	}

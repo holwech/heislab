@@ -2,10 +2,10 @@ package master
 
 import (
 	"fmt"
-
 	"github.com/holwech/heislab/cl"
 	"github.com/holwech/heislab/network"
 	"github.com/holwech/heislab/orders"
+	"time"
 )
 
 func InitMaster(nw *network.Network) {
@@ -18,6 +18,7 @@ func Run(nw *network.Network) {
 	inputChan, sendMaster := nw.MChannels()
 	sys := orders.NewSystem()
 	isActive := false
+	ticker := time.NewTicker(1 * time.Second)
 	for {
 		select {
 		case message := <-inputChan:
@@ -44,7 +45,7 @@ func Run(nw *network.Network) {
 				//Future work - check connected elevators
 				sys.RemoveElevator(message.Sender)
 			case cl.System:
-				switch message.Content{
+				switch message.Content {
 				case cl.Startup:
 					if isActive {
 						ping := network.Message{nw.LocalIP, message.Sender, network.CreateID(cl.Master), cl.JoinMaster, ""}
@@ -57,13 +58,14 @@ func Run(nw *network.Network) {
 			}
 			sys.AssignOrders()
 			sys.CheckNewCommand()
-			fmt.Println(sys)
 		case message := <-sys.Commands:
 			if isActive {
 				message.Sender = nw.LocalIP
 				message.ID = network.CreateID(cl.Master)
 				sendMaster <- message
 			}
+		case <-ticker.C:
+			fmt.Println(sys)
 		}
 	}
 }
