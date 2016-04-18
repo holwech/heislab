@@ -40,16 +40,16 @@ func Run(sendCh chan CommData) <-chan CommData {
 	commReceive := make(chan CommData)
 	connStatus := make(chan Timestamp)
 	commSend := make(chan CommData)
-	receivedMsg := make(chan CommData)
+	recvCh := make(chan CommData)
 	localIP := GetLocalIP()
 	go listen(commReceive)
-	go broadcast(commSend, connStatus)
-	go checkTimeout(connStatus, receivedMsg, localIP)
-	go msgSorter(commReceive, receivedMsg, connStatus, commSend, sendCh, localIP)
-	return receivedMsg
+	go broadcast(commSend)
+	go checkTimeout(connStatus, recvCh, localIP)
+	go msgSorter(commReceive, recvCh, connStatus, commSend, sendCh, localIP)
+	return recvCh
 }
 
-func msgSorter(commReceive <-chan CommData, receivedMsg chan<- CommData, connStatus chan<- Timestamp, commSend chan<- CommData, sendCh <-chan CommData, localIP string) {
+func msgSorter(commReceive <-chan CommData, recvCh chan<- CommData, connStatus chan<- Timestamp, commSend chan<- CommData, sendCh <-chan CommData, localIP string) {
 	for {
 		select {
 		// When messages are received
@@ -79,7 +79,7 @@ func msgSorter(commReceive <-chan CommData, receivedMsg chan<- CommData, connSta
 					}
 					commSend <- ok
 				}
-				receivedMsg <- message
+				recvCh <- message
 			}
 		// When messages are sent, set time-stamp
 		case message := <-sendCh:
@@ -97,7 +97,7 @@ func msgSorter(commReceive <-chan CommData, receivedMsg chan<- CommData, connSta
 	}
 }
 
-func checkTimeout(connStatus chan Timestamp, receivedMsg chan CommData, localIP string) {
+func checkTimeout(connStatus chan Timestamp, recvCh chan CommData, localIP string) {
 	messageLog := make(map[string]Timestamp)
 	ticker := time.NewTicker(50 * time.Millisecond).C
 	for {
@@ -119,7 +119,7 @@ func checkTimeout(connStatus chan Timestamp, receivedMsg chan CommData, localIP 
 					Response:   cl.Connection,
 					Content:    content,
 				}
-				receivedMsg <- status
+				recvCh <- status
 			} else {
 				messageLog[metadata.MsgID] = metadata
 			}
@@ -137,14 +137,14 @@ func checkTimeout(connStatus chan Timestamp, receivedMsg chan CommData, localIP 
 						Response:   cl.Connection,
 						Content:    cl.Failed,
 					}
-					receivedMsg <- status
+					recvCh <- status
 				}
 			}
 		}
 	}
 }
 
-func broadcast(commSend chan CommData, connStatus chan Timestamp) {
+func broadcast(commSend chan CommData) {
 	fmt.Printf("COMM: Broadcasting message to: %s%s\n", broadcast_addr, port)
 	broadcastAddress, err := net.ResolveUDPAddr("udp", broadcast_addr+port)
 	if err != nil {
