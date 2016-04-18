@@ -2,7 +2,6 @@ package cl
 
 // === This is a list of response-headers that the system uses to communicate
 
-
 // === Orders
 // Commands from master
 var Stop string = "STOP"
@@ -20,7 +19,6 @@ var InnerOrder string = "INNER"
 var OuterOrder string = "OUTER"
 var Floor string = "FLOOR"
 var DoorClosed string = "DOORCLOSED"
-
 
 // === System status
 // = Response
@@ -44,11 +42,10 @@ var JoinMaster string = "JOIN"
 var Backup string = "BACKUP"
 var All string = "ALL"
 
-
-
 // === Communication package
 // = Response
 var Connection string = "CONNECTION"
+
 // = Content
 var OK string = "OK"
 var Timeout string = "TIMEOUT"

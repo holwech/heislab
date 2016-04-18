@@ -1,11 +1,9 @@
 package master
 
 import (
-	"fmt"
 	"github.com/holwech/heislab/cl"
 	"github.com/holwech/heislab/network"
 	"github.com/holwech/heislab/orders"
-	"time"
 )
 
 func InitMaster(nw *network.Network) {
@@ -18,7 +16,6 @@ func Run(nw *network.Network) {
 	inputChan, sendMaster := nw.MChannels()
 	sys := orders.NewSystem()
 	isActive := false
-	ticker := time.NewTicker(1 * time.Second)
 	for {
 		select {
 		case message := <-inputChan:
@@ -64,8 +61,6 @@ func Run(nw *network.Network) {
 				message.ID = network.CreateID(cl.Master)
 				sendMaster <- message
 			}
-		case <-ticker.C:
-			fmt.Println(sys)
 		}
 	}
 }

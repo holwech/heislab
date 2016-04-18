@@ -90,12 +90,20 @@ func sorter(nw *Network, commSend chan<- communication.CommData, commReceive <-c
 	for {
 		select {
 		case message := <-nw.slaveSend:
+			fmt.Println("slavesend1")
 			commMsg := *communication.ResolveMsg(nw.LocalIP, message.Receiver, message.ID, message.Response, message.Content)
 			commSend <- commMsg
+			fmt.Println("slavesend2")
+
 		case message := <-nw.masterSend:
+			fmt.Println("mastersend1")
 			commMsg := *communication.ResolveMsg(nw.LocalIP, message.Receiver, message.ID, message.Response, message.Content)
+			fmt.Println("mastersend2")
 			commSend <- commMsg
+			fmt.Println("mastersend3")
+
 		case message := <-commReceive:
+			fmt.Println("comrecv1")
 			convMsg := commToMsg(&message)
 			assertMsg(&convMsg)
 			if printAll {
@@ -113,6 +121,7 @@ func sorter(nw *Network, commSend chan<- communication.CommData, commReceive <-c
 				nw.masterReceive <- convMsg
 				printInfo("Master received message", &convMsg)
 			}
+			fmt.Println("comrecv2")
 		}
 	}
 }

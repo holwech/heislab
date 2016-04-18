@@ -66,7 +66,7 @@ func msgSorter(commReceive <-chan CommData, receivedMsg chan<- CommData, connSta
 					}
 					connStatus <- received
 				}
-			// If message is a normal message, then send verification
+				// If message is a normal message, then send verification
 			} else {
 				if message.ReceiverIP == localIP {
 					ok := CommData{
@@ -83,7 +83,9 @@ func msgSorter(commReceive <-chan CommData, receivedMsg chan<- CommData, connSta
 			}
 		// When messages are sent, set time-stamp
 		case message := <-sendCh:
+			fmt.Println("sendch1")
 			commSend <- message
+			fmt.Println("sendch2")
 			timeSent := Timestamp{
 				SenderIP: message.SenderIP,
 				MsgID:    message.MsgID,
@@ -155,12 +157,18 @@ func broadcast(commSend chan CommData, connStatus chan Timestamp) {
 	}
 	defer connection.Close()
 	for {
+		fmt.Println("broadcast1")
 		message := <-commSend
+		fmt.Println("broadcast2")
 		convMsg, err := json.Marshal(message)
+		fmt.Println("broadcast3")
 		if err != nil {
 			printError("=== ERROR: Convertion of json failed in broadcast", err)
 		}
-		connection.Write(convMsg)
+		_, err = connection.Write(convMsg)
+		if err != nil {
+			printError("=== ERROR: Write in broadcast failed", err)
+		}
 	}
 }
 

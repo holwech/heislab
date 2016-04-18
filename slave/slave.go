@@ -46,14 +46,13 @@ func Run() {
 		case outerOrder := <-outerChan:
 			send(sl.MasterID, "", cl.OuterOrder, outerOrder, slaveSend)
 		case newFloor := <-floorChan:
+			fmt.Printf("Floor: %d\n", newFloor)
 			send(sl.MasterID, "", cl.Floor, newFloor, slaveSend)
 			if newFloor != -1 {
 				sl.MotorTimer.Reset(6 * time.Second)
 				if sl.EngineState == cl.EngineFail {
 					sl.EngineState = cl.EngineOK
-					fmt.Println("the last step?")
 					send(sl.MasterID, "", cl.System, cl.EngineOK, slaveSend)
-					fmt.Println("the last step2?")
 
 				}
 			}
