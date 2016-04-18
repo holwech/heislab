@@ -5,19 +5,18 @@ import (
 	"github.com/holwech/heislab/network"
 )
 
-const maxCost int = 100000
+const MAXCOST int = 100000
 
 func (sys *System) NotifyFloor(elevatorIP string, floor int) {
 	elevator, inSystem := sys.Elevators[elevatorIP]
 	if inSystem && floor != -1 {
 		if elevator.Orders[floor] != None {
 			var command network.Message
-			var commandLight network.Message
-
 			command.Receiver = elevatorIP
 			command.Response = cl.Stop
 			sys.Commands <- command
 
+			var commandLight network.Message
 			commandLight.Receiver = cl.All
 			if elevator.Orders[floor] == OuterDown {
 				commandLight.Response = cl.LightOffOuterDown
@@ -26,6 +25,7 @@ func (sys *System) NotifyFloor(elevatorIP string, floor int) {
 			}
 			commandLight.Content = floor
 			sys.Commands <- commandLight
+
 			commandLight.Receiver = elevatorIP
 			commandLight.Response = cl.LightOffInner
 			sys.Commands <- commandLight
@@ -52,39 +52,42 @@ func (elev *ElevatorState) CalculateCost(floor, direction int) int {
 	case Idle:
 		return 100 * intAbs(elev.Floor-floor)
 	case Moving:
-		if (elev.Direction == 1 && elev.Floor < floor) ||
-			(elev.Direction == -1 && elev.Floor > floor) {
+		if elev.Direction == direction &&
+			((elev.Direction == 1 && elev.Floor < floor) ||
+				(elev.Direction == -1 && elev.Floor > floor)) {
 			return 10 * intAbs(elev.Floor-floor)
 		} else {
-			return maxCost
+			return MAXCOST
 		}
 	case DoorOpen:
 		if elev.hasMoreOrders() {
-			if (elev.Direction == 1 && elev.Floor < floor) ||
-				(elev.Direction == -1 && elev.Floor > floor) {
+			if elev.Direction == direction &&
+				((elev.Direction == 1 && elev.Floor < floor) ||
+					(elev.Direction == -1 && elev.Floor > floor)) {
 				return 15 * intAbs(elev.Floor-floor)
 			} else {
-				return maxCost
+				return MAXCOST
 			}
 		} else {
 			return 100 * intAbs(elev.Floor-floor)
 		}
 	case AwaitingCommand:
-		if (elev.Direction == 1 && elev.Floor < floor) ||
-			(elev.Direction == -1 && elev.Floor > floor) {
+		if elev.Direction == direction &&
+			((elev.Direction == 1 && elev.Floor < floor) ||
+				(elev.Direction == -1 && elev.Floor > floor)) {
 			return 12 * intAbs(elev.Floor-floor)
 		} else {
-			return maxCost
+			return MAXCOST
 		}
 	default:
-		return maxCost
+		return MAXCOST
 	}
 }
 
 func (sys *System) AssignOrders() {
 	for floor := 0; floor < 4; floor++ {
 		if sys.UnhandledOrdersUp[floor] {
-			var minCost int = maxCost
+			var minCost int = MAXCOST
 			var minCostElevIP string
 			var minCostElev ElevatorState
 			for elevIP := range sys.Elevators {
@@ -96,14 +99,14 @@ func (sys *System) AssignOrders() {
 					minCostElevIP = elevIP
 				}
 			}
-			if minCost < maxCost {
+			if minCost < MAXCOST {
 				minCostElev.Orders[floor] = OuterUp
 				sys.Elevators[minCostElevIP] = minCostElev
 				sys.UnhandledOrdersUp[floor] = false
 			}
 		}
 		if sys.UnhandledOrdersDown[floor] {
-			var minCost int = maxCost
+			var minCost int = MAXCOST
 			var minCostElevIP string
 			var minCostElev ElevatorState
 			for elevIP := range sys.Elevators {
@@ -115,7 +118,7 @@ func (sys *System) AssignOrders() {
 					minCostElevIP = elevIP
 				}
 			}
-			if minCost < maxCost {
+			if minCost < MAXCOST {
 				minCostElev.Orders[floor] = OuterDown
 				sys.Elevators[minCostElevIP] = minCostElev
 				sys.UnhandledOrdersDown[floor] = false
@@ -172,4 +175,51 @@ func (sys *System) CheckNewCommand() {
 			}
 		}
 	}
+}
+
+func (sys *System) CommandElevators() {
+	for elevIP, elev := range sys.Elevators {
+		switch elev.CurrentBehaviour {
+		case Idle:
+			if elev.Orders[elev.Floor] {
+				sys.StopElevator(elevIP)
+				sys.RemoveOrder(elevatorIP, elev.Floor)
+			}
+		case Moving:
+		case DoorOpen:
+		case AwaitingCommand:
+		}
+	}
+}
+
+func (sys *System) NotifyFloor2(elevatorIP string, floor int) {
+	elevator, inSystem := sys.Elevators[elevatorIP]
+	if inSystem && floor != -1 {
+		elevator.Floor = floor
+		sys.Elevators[elevatorIP] = elevator
+	}
+}
+
+func (sys *System) StopElevator(elevIP string) {
+	elevator = sys.Elevators[elevIP]
+	var command network.Message
+	command.Receiver = elevatorIP
+	command.Response = cl.Stop
+	sys.Commands <- command
+
+	var commandLight network.Message
+	commandLight.Receiver = cl.All
+	if elevator.Orders[floor] == OuterDown {
+		commandLight.Response = cl.LightOffOuterDown
+	} else if elevator.Orders[floor] == OuterUp {
+		commandLight.Response = cl.LightOffOuterUp
+	}
+	commandLight.Content = floor
+	sys.Commands <- commandLight
+
+	commandLight.Receiver = elevatorIP
+	commandLight.Response = cl.LightOffInner
+	sys.Commands <- commandLight
+
+	sys.SetBehaviour(elevatorIP, DoorOpen)
 }

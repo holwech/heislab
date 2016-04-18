@@ -103,10 +103,8 @@ func (sys *System) NotifyInnerOrder(elevatorIP string, floor int) {
 			elevator.Orders[floor] = Inner
 			sys.Elevators[elevatorIP] = elevator
 		}
-		//if elevator.Floor != floor{
 		cmdLight := network.Message{"", elevatorIP, "", cl.LightOnInner, floor}
 		sys.Commands <- cmdLight
-		//}
 	}
 }
 
