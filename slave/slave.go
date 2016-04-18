@@ -62,6 +62,7 @@ func Run() {
 			send(nw.LocalIP, "", cl.System, cl.SetMaster, slaveSend)
 			sl.MasterID = nw.LocalIP
 		case <- sl.MotorTimer.C:
+			sl.EngineState = cl.EngineFail
 			send(sl.MasterID, "", cl.System, cl.EngineFail, slaveSend)
 		}
 	}
