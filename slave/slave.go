@@ -2,7 +2,6 @@ package main
 
 import (
 	"time"
-"fmt"
 	"github.com/holwech/heislab/cl"
 	"github.com/holwech/heislab/driver"
 	"github.com/holwech/heislab/master"
@@ -10,7 +9,7 @@ import (
 )
 
 type Slave struct {
-	DoorTimer, StartupTimer *time.Timer
+	DoorTimer, StartupTimer, MotorTimer *time.Timer
 	MasterID string
 }
 
@@ -19,6 +18,8 @@ func (sl *Slave) Init() {
 	sl.DoorTimer.Stop()
 	sl.StartupTimer = time.NewTimer(time.Second)
 	sl.StartupTimer.Stop()
+	sl.MotorTimer = time.NewTimer(time.Second)
+	sl.MotorTimer.Stop()
 	sl.MasterID = cl.Unknown
 }
 
@@ -30,7 +31,6 @@ func initSlave() *Slave {
 
 func Run() {
 	innerChan, outerChan, floorChan := driver.InitElevator()
-	fmt.Println("loool")
 	nw := network.InitNetwork()
 	master.InitMaster(nw)
 	sl := initSlave()
@@ -67,9 +67,6 @@ func handleInput(sl *Slave, nw *network.Network, message network.Message, slaveS
 		driver.SetMotorDirection(0)
 		driver.SetDoorLamp(1)
 		sl.DoorTimer.Reset(3 * time.Second)
-	case cl.JoinMaster:
-		sl.StartupTimer.Stop()
-		sl.MasterID = message.Sender
 	case cl.LightOnInner:
 		driver.SetInnerPanelLamp(message.Content.(int), 1)
 	case cl.LightOffInner:
@@ -88,6 +85,12 @@ func handleInput(sl *Slave, nw *network.Network, message network.Message, slaveS
 			//Assumes lost connection on timeout. This will be changed later
 			send(nw.LocalIP, cl.SetMaster, time.Now(), slaveSend)
 			sl.MasterID = nw.LocalIP
+		}
+	case cl.System:
+		switch message.Content{
+		case cl.JoinMaster:
+			sl.StartupTimer.Stop()
+			sl.MasterID = message.Sender
 		}
 	}
 }
