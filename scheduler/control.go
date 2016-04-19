@@ -57,7 +57,7 @@ func (sys *System) AssignOuterOrders() {
 			var minCostElev ElevatorState
 			for elevIP := range sys.Elevators {
 				elev := sys.Elevators[elevIP]
-				cost := elev.CostOfOuterOrder(floor, 1)
+				cost := elev.costOfOuterOrder(floor, 1)
 				if cost < minCost {
 					minCost = cost
 					minCostElev = elev
@@ -79,7 +79,7 @@ func (sys *System) AssignOuterOrders() {
 			var minCostElev ElevatorState
 			for elevIP := range sys.Elevators {
 				elev := sys.Elevators[elevIP]
-				cost := elev.CostOfOuterOrder(floor, -1)
+				cost := elev.costOfOuterOrder(floor, -1)
 				if cost < minCost {
 					minCost = cost
 					minCostElev = elev
@@ -104,14 +104,14 @@ func (sys *System) CommandConnectedElevators() {
 		case Idle:
 		case Moving:
 		case DoorOpen:
-			if elev.hasOrdersAtFloor(elev.Floor){
-				sys.SendStopCommands(elevIP)
+			if elev.hasOrderAtFloor(elev.Floor){
+				sys.sendStopCommands(elevIP)
 				sys.ClearOrder(elevIP, elev.Floor)
 				sys.SetBehaviour(elevIP, DoorOpen)
 			}
 		case AwaitingCommand:
-			if elev.hasOrdersAtFloor(elev.Floor){
-				sys.SendStopCommands(elevIP)
+			if elev.hasOrderAtFloor(elev.Floor){
+				sys.sendStopCommands(elevIP)
 				sys.ClearOrder(elevIP, elev.Floor)
 				sys.SetBehaviour(elevIP, DoorOpen)
 			}else{
@@ -172,20 +172,20 @@ func (elev *ElevatorState) costOfOuterOrder(floor, direction int) int {
 }
 
 func (sys *System) sendStopCommands(elevIP string) {
-	elevator = sys.Elevators[elevIP]
+	elevator := sys.Elevators[elevIP]
 	var command network.Message
 
-	command.Receiver = elevatorIP
+	command.Receiver = elevIP
 	command.Response = cl.Stop
 	sys.Commands <- command
-	if elevator.OuterOrdersDown[floor]{
-		sys.Commands <- network.Message{"",cl.All,"",cl.LightOffOuterDown,floor}
+	if elevator.OuterOrdersDown[elevator.Floor]{
+		sys.Commands <- network.Message{"",cl.All,"",cl.LightOffOuterDown,elevator.Floor}
 	}
-	if elevator.OuterOrdersUp[floor]{
-		sys.Commands <- network.Message{"",cl.All,"",cl.LightOffOuterUp,floor}
+	if elevator.OuterOrdersUp[elevator.Floor]{
+		sys.Commands <- network.Message{"",cl.All,"",cl.LightOffOuterUp,elevator.Floor}
 	}
-	if elevator.InnerOrders[floor]{
-		sys.Commands <- network.Message{"",elevatorIP,"",cl.LightOffInner,floor}
+	if elevator.InnerOrders[elevator.Floor]{
+		sys.Commands <- network.Message{"",elevIP,"",cl.LightOffInner,elevator.Floor}
 	}
 }
 

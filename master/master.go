@@ -5,7 +5,7 @@ import (
 
 	"github.com/holwech/heislab/cl"
 	"github.com/holwech/heislab/network"
-	"github.com/holwech/heislab/orders"
+	"github.com/holwech/heislab/scheduler"
 )
 
 func InitMaster(nw *network.Network) {
@@ -16,7 +16,7 @@ func InitMaster(nw *network.Network) {
 //Will the behaviour and order list be the same on all masters running?
 func Run(nw *network.Network) {
 	receiveMaster, sendMaster := nw.MChannels()
-	sys := orders.NewSystem()
+	sys := scheduler.NewSystem()
 	isActiveMaster := false
 
 	for {
@@ -54,8 +54,8 @@ func Run(nw *network.Network) {
 			case cl.SetMaster:
 				isActiveMaster = true
 			}
-			sys.AssignOrders()
-			go sys.CheckNewCommand()
+			sys.AssignOuterOrders()
+			go sys.CommandConnectedElevators()
 			fmt.Println(sys)
 		case command := <-sys.Commands:
 			if isActiveMaster {
