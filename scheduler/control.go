@@ -15,6 +15,9 @@ func (sys *System) NotifyInnerOrder(elevatorIP string, floor int) {
 		sys.Elevators[elevatorIP] = elevator
 		cmdLight := network.Message{"", elevatorIP, "", cl.LightOnInner, floor}
 		sys.Commands <- cmdLight
+		if elevator.CurrentBehaviour == Idle{
+			sys.SetBehaviour(elevatorIP,AwaitingCommand)
+		}
 	}
 }
 
@@ -103,6 +106,11 @@ func (sys *System) CommandConnectedElevators() {
 		switch elev.CurrentBehaviour {
 		case Idle:
 		case Moving:
+			if elev.hasOrderAtFloor(elev.Floor){
+				sys.sendStopCommands(elevIP)
+				sys.ClearOrder(elevIP, elev.Floor)
+				sys.SetBehaviour(elevIP, DoorOpen)
+			}
 		case DoorOpen:
 			if elev.hasOrderAtFloor(elev.Floor){
 				sys.sendStopCommands(elevIP)

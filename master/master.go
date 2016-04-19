@@ -56,7 +56,7 @@ func Run(nw *network.Network) {
 				}
 			}
 			sys.AssignOuterOrders()
-			go sys.CommandConnectedElevators()
+			sys.CommandConnectedElevators()
 			fmt.Println(sys)
 		case command := <-sys.Commands:
 			if isActiveMaster {
