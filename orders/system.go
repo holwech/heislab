@@ -1,4 +1,4 @@
-package orders
+package scheduler
 
 import (
 	"github.com/holwech/heislab/cl"
@@ -16,7 +16,7 @@ const (
 
 
 type ElevatorState struct {
-	Floor            int //Previous active floor
+	Floor            int 
 	Direction        int
 	CurrentBehaviour Behaviour
 	InnerOrders           [4]bool
@@ -24,7 +24,6 @@ type ElevatorState struct {
 	OuterOrdersDown         [4]bool
 
 }
-
 
 type System struct {
 	Elevators           map[string]ElevatorState

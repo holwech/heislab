@@ -55,7 +55,7 @@ func Run(nw *network.Network) {
 				isActiveMaster = true
 			}
 			sys.AssignOrders()
-			sys.CheckNewCommand()
+			go sys.CheckNewCommand()
 			fmt.Println(sys)
 		case command := <-sys.Commands:
 			if isActiveMaster {
