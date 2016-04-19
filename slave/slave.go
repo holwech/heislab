@@ -100,7 +100,7 @@ func handleInput(sl *Slave, nw *network.Network, message network.Message, slaveS
 		switch message.Content {
 		case cl.Failed:
 			//Assumes lost connection on timeout. This will be changed later
-			send(nw.LocalIP, "", cl.SetMaster, time.Now(), slaveSend)
+			send(nw.LocalIP, nw.LocalIP, cl.System, cl.SetMaster, slaveSend)
 			sl.MasterID = nw.LocalIP
 		}
 	case cl.System:
