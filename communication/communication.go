@@ -36,7 +36,7 @@ func printError(errMsg string, err error) {
 }
 
 func (cm *Communication) Init() {
-	cm.CommReceive = make(chan CommData)
+	cm.CommReceive = make(chan CommData, 10)
 	cm.CommSend = make(chan CommData)
 	cm.Receive = make(chan CommData)
 	cm.Send = make(chan CommData)

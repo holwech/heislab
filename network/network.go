@@ -67,7 +67,7 @@ func InitNetwork() *Network {
 func (nw *Network) Init() {
 	nw.slaveReceive = make(chan Message)
 	nw.masterReceive = make(chan Message)
-	nw.slaveSend = make(chan Message)
+	nw.slaveSend = make(chan Message, 2)
 	nw.masterSend = make(chan Message)
 }
 
@@ -91,11 +91,9 @@ func sorter(nw *Network, commSend chan<- communication.CommData, commReceive <-c
 		case message := <-nw.slaveSend:
 			commMsg := *communication.ResolveMsg(nw.LocalIP, message.Receiver, message.ID, message.Response, message.Content)
 			commSend <- commMsg
-
 		case message := <-nw.masterSend:
 			commMsg := *communication.ResolveMsg(nw.LocalIP, message.Receiver, message.ID, message.Response, message.Content)
 			commSend <- commMsg
-
 		case message := <-commReceive:
 			convMsg := commToMsg(&message)
 			assertMsg(&convMsg)
