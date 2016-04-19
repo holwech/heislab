@@ -31,9 +31,9 @@ func InitElevator() (<-chan InnerOrder, <-chan OuterOrder, <-chan int) {
 		}
 		SetMotorDirection(0)
 	}
+
 	innerChan := ListenInnerPanel()
 	outerChan := ListenOuterPanel()
-
 	return innerChan, outerChan, floorChan
 }
 

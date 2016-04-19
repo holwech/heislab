@@ -3,7 +3,8 @@ package master
 import (
 	"github.com/holwech/heislab/cl"
 	"github.com/holwech/heislab/network"
-	"github.com/holwech/heislab/orders"
+	"github.com/holwech/heislab/scheduler"
+	"fmt"
 )
 
 func InitMaster(nw *network.Network) {
@@ -13,12 +14,13 @@ func InitMaster(nw *network.Network) {
 //Listen to inputs from slaves and send commands back
 //Will the behaviour and order list be the same on all masters running?
 func Run(nw *network.Network) {
-	inputChan, sendMaster := nw.MChannels()
-	sys := orders.NewSystem()
-	isActive := false
+	receiveMaster, sendMaster := nw.MChannels()
+	sys := scheduler.NewSystem()
+	isActiveMaster := false
+
 	for {
 		select {
-		case message := <-inputChan:
+		case message := <-receiveMaster:
 			switch message.Response {
 			case cl.InnerOrder:
 				content := message.Content.(map[string]interface{})
@@ -44,22 +46,23 @@ func Run(nw *network.Network) {
 			case cl.System:
 				switch message.Content {
 				case cl.Startup:
-					if isActive {
+					if isActiveMaster {
 						ping := network.Message{nw.LocalIP, message.Sender, network.CreateID(cl.Master), cl.JoinMaster, ""}
 						sendMaster <- ping
 					}
 					sys.AddElevator(message.Sender)
 				case cl.SetMaster:
-					isActive = true
+					isActiveMaster = true
 				}
 			}
-			sys.AssignOrders()
-			sys.CheckNewCommand()
-		case message := <-sys.Commands:
-			if isActive {
-				message.Sender = nw.LocalIP
-				message.ID = network.CreateID(cl.Master)
-				sendMaster <- message
+			sys.AssignOuterOrders()
+			go sys.CommandConnectedElevators()
+			fmt.Println(sys)
+		case command := <-sys.Commands:
+			if isActiveMaster {
+				command.Sender = nw.LocalIP
+				command.ID = network.CreateID(cl.Master)
+				sendMaster <- command
 			}
 		}
 	}
