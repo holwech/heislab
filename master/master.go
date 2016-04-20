@@ -58,11 +58,12 @@ func Run(nw *network.Network) {
 			sys.AssignOuterOrders()
 			sys.CommandConnectedElevators()
 			fmt.Println(sys)
-		case command := <-sys.Commands:
-			if isActiveMaster {
-				command.Sender = nw.LocalIP
-				command.ID = network.CreateID(cl.Master)
-				sendMaster <- command
+			for command := range sys.Commands{
+				if isActiveMaster {
+					command.Sender = nw.LocalIP
+					command.ID = network.CreateID(cl.Master)
+					sendMaster <- command
+				}				
 			}
 		}
 	}

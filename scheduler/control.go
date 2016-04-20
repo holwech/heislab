@@ -38,6 +38,11 @@ func (sys *System) NotifyFloor(elevatorIP string, floor int) {
 	if inSystem && floor != -1 {
 		elevator.Floor = floor
 		sys.Elevators[elevatorIP] = elevator
+		if elevator.hasOrderAtFloor(floor){
+			sys.sendStopCommands(elevatorIP)
+			sys.ClearOrder(elevatorIP, floor)
+			sys.SetBehaviour(elevatorIP, DoorOpen)
+		}
 	}
 }
 
@@ -106,11 +111,6 @@ func (sys *System) CommandConnectedElevators() {
 		switch elev.CurrentBehaviour {
 		case Idle:
 		case Moving:
-			if elev.hasOrderAtFloor(elev.Floor){
-				sys.sendStopCommands(elevIP)
-				sys.ClearOrder(elevIP, elev.Floor)
-				sys.SetBehaviour(elevIP, DoorOpen)
-			}
 		case DoorOpen:
 			if elev.hasOrderAtFloor(elev.Floor){
 				sys.sendStopCommands(elevIP)
