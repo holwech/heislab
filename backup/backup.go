@@ -5,12 +5,11 @@ import (
 	"os"
 	"time"
 	"fmt"
-	"math/rand"
 	"os/exec"
-	"encoding/binary"
 )
 
-const local_IP = "localhost:25050"
+const local_IP = "localhost"
+const port = ":25051"
 
 func checkError(err error) {
 	if err != nil {
@@ -19,99 +18,63 @@ func checkError(err error) {
 	}
 }
 
-func checkPrimary(quit <-chan bool) (<-chan int){
-	timeout := make(chan int)
+func pingAlive(){
+	broadcastAddress, err := net.ResolveUDPAddr("udp", local_IP + port)
+	checkError(err)
+	localAddress, err := net.ResolveUDPAddr("udp", local_IP + port)
+	checkError(err)
+	connection, err := net.DialUDP("udp", localAddress, broadcastAddress)
+	checkError(err)
+	_, err = connection.Write([]byte("quit"))
+	defer connection.Close()
+	for {
+		_, err = connection.Write([]byte("alive"))
+		checkError(err)
+		fmt.Println("Alive")
+		time.Sleep(time.Second)
+	}
+}
+
+func listen() (<- chan time.Time) {
+	timeout := time.NewTimer(2 * time.Second)
 	go func(){
-		address := local_IP
-		udpAddr, err := net.ResolveUDPAddr("udp4", address)
+		localAddress, err := net.ResolveUDPAddr("udp", port)
 		checkError(err)
-		conn, err := net.ListenUDP("udp4", udpAddr)
-		defer conn.Close()
+		connection, err := net.ListenUDP("udp", localAddress)
 		checkError(err)
-		conn.SetReadDeadline(time.Now().Add(1*time.Second))
-		prevVal := 0
-		buf := make([]byte, 8)
-		for{
-			select{
-			case <- quit:
-				close(timeout)
-				return
-			default:
-				_, _, err := conn.ReadFromUDP(buf[0:])
-				if nerr, ok := err.(net.Error); ok && nerr.Timeout(){
-					select {
-						case timeout <- prevVal:
-						default:
-					}
-				}else{
-					recvVal := int(binary.BigEndian.Uint64(buf))
-					prevVal = recvVal
-					conn.SetReadDeadline(time.Now().Add(1*time.Second))
-				}
+		defer connection.Close()
+		for {
+			buffer := make([]byte, 4096)
+			fmt.Println("Before Read")
+			length, _, err := connection.ReadFromUDP(buffer)
+			checkError(err)
+			fmt.Println("After read")
+			buffer = buffer[:length]
+			if string(buffer) == "alive" {
+				timeout.Reset(2 * time.Second)
+				fmt.Println("Alive received")
+			} else if string(buffer) == "quit" {
+				break
 			}
 		}
 	}()
-	return timeout
-}
-
-func pingAlive(pingVal <-chan int, quit <-chan bool){
-	udpAddr, err := net.ResolveUDPAddr("udp", local_IP)
-	checkError(err)
-	conn, err := net.DialUDP("udp", udpAddr, udpAddr)
-	checkError(err)
-	defer conn.Close()
-	ping := 0
-
-	for{
-		buf := make([]byte,10)
-		binary.BigEndian.PutUint64(buf, uint64(ping))
-		_, err = conn.Write(buf)
-		checkError(err)
-		time.Sleep(10*time.Millisecond)
-	}
+	return timeout.C
 }
 
 
-
-func randomExit(duration int){
-	rand.Seed(time.Now().UTC().UnixNano())
-
-	for{
-		i := rand.Int()
-		if (i) % (duration) == 0{
-			fmt.Println("Random exit")
-			os.Exit(1)
-		}
-		time.Sleep(1*time.Second)
+func Run(flag string) {
+	if flag == "-b" {
+		timeout := listen()
+		fmt.Println("Waiting")
+		<- timeout
+		fmt.Println("Done waiting")
+		go pingAlive()
+		time.Sleep(100 * time.Millisecond)
+		cmd := exec.Command("bash", "-c", "gnome-terminal -x go run main.go")
+		cmd.Start()
+	} else {
+		go pingAlive()
+		cmd := exec.Command("bash", "-c", "gnome-terminal -x go run main.go")
+		cmd.Start()
 	}
-}
-
-func main(){
-	quitCheck := make(chan bool)
-	timeout := checkPrimary(quitCheck)
-
-	currentVal := <- timeout
-	quitCheck <- true
-
-  cmd := exec.Command("bash", "-c", "gnome-terminal -x go run oving6.go")
-  cmd.Start()
-
-  time.Sleep(1*time.Second)
-
-	quitPing := make(chan bool)
-	pingVal := make (chan int)
-
-	go pingAlive(pingVal, quitPing)
-	//go randomExit(10)
-
-
-    //cmd := exec.Command("bash", "-c", "start go run oving6.go")
-
-	for{
-		pingVal <- currentVal
-		fmt.Println(currentVal+1)
-		currentVal += 1
-		time.Sleep(1*time.Second)
-	}
-	fmt.Println("finito")
 }
