@@ -57,6 +57,31 @@ func (sys *System) NotifyDoorClosed(elevatorIP string) {
 	}
 }
 
+func (sys *System) NotifyEngineFail(elevatorIP string) {
+	elevator, inSystem := sys.Elevators[elevatorIP]
+	if inSystem {
+		elevator.EngineFail = true
+		sys.UnassignOuterOrders(elevatorIP)
+		if !elevator.hasMoreOrders(){
+			if elevator.Direction == 1{
+				elevator.InnerOrders[elevator.Floor+1] = true
+			}else{
+				elevator.InnerOrders[elevator.Floor-1] = true
+			}
+			sys.SetBehaviour(elevatorIP,AwaitingCommand)
+		}
+		sys.Elevators[elevatorIP] = elevator
+	}
+}
+
+func (sys *System) NotifyEngineOk(elevatorIP string) {
+	elevator, inSystem := sys.Elevators[elevatorIP]
+	if inSystem {
+		elevator.EngineFail = false
+		sys.Elevators[elevatorIP] = elevator
+	}
+}
+
 func (sys *System) AssignOuterOrders() {
 	for floor := 0; floor < 4; floor++ {
 		if sys.UnhandledOrdersUp[floor] {
@@ -79,6 +104,9 @@ func (sys *System) AssignOuterOrders() {
 				minCostElev.OuterOrdersUp[floor] = true
 				sys.Elevators[minCostElevIP] = minCostElev
 				sys.UnhandledOrdersUp[floor] = false
+				if minCostElev.CurrentBehaviour == Idle{
+					sys.SetBehaviour(minCostElevIP,AwaitingCommand)
+				}
 			}
 		}
 		if sys.UnhandledOrdersDown[floor] {
@@ -101,6 +129,9 @@ func (sys *System) AssignOuterOrders() {
 				minCostElev.OuterOrdersDown[floor] = true
 				sys.Elevators[minCostElevIP] = minCostElev
 				sys.UnhandledOrdersDown[floor] = false
+				if minCostElev.CurrentBehaviour == Idle{
+					sys.SetBehaviour(minCostElevIP,AwaitingCommand)
+				}
 			}
 		}
 	}
@@ -123,19 +154,29 @@ func (sys *System) CommandConnectedElevators() {
 				sys.ClearOrder(elevIP, elev.Floor)
 				sys.SetBehaviour(elevIP, DoorOpen)
 			}else{
-				for floor := 0; floor < 4; floor++ {
-					var command network.Message
-					command.Receiver = elevIP
-					if elev.Floor > floor {
-						command.Response = cl.Down
-						sys.SetDirection(elevIP, -1)
-					}else if elev.Floor < floor {
-						command.Response = cl.Up
-						sys.SetDirection(elevIP, 1)
+				var command network.Message	
+				command.Receiver = elevIP
+				if elev.Direction == 1{
+					command.Response = cl.Down
+					sys.SetDirection(elevIP, -1)
+					for floor := elev.Floor+1; floor < 4; floor++{
+						if elev.hasOrderAtFloor(floor){
+							command.Response = cl.Up
+							sys.SetDirection(elevIP, 1)
+						}
 					}
-					sys.SetBehaviour(elevIP, Moving)
-					sys.Commands <- command
+				}else{
+					command.Response = cl.Up
+					sys.SetDirection(elevIP, 1)
+					for floor := 0; floor < elev.Floor; floor++{
+						if elev.hasOrderAtFloor(floor){
+							command.Response = cl.Down
+							sys.SetDirection(elevIP, -1)
+						}
+					}
 				}
+				sys.Commands <- command
+				sys.SetBehaviour(elevIP, Moving)	
 			}
 		}
 	}
@@ -143,6 +184,9 @@ func (sys *System) CommandConnectedElevators() {
 
 
 func (elev *ElevatorState) costOfOuterOrder(floor, direction int) int {
+	if elev.EngineFail{
+		return MAXCOST
+	}
 	switch elev.CurrentBehaviour {
 	case Idle:
 		return 100 * intAbs(elev.Floor-floor)

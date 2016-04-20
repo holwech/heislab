@@ -39,6 +39,8 @@ func Run() {
 	receive, send := nw.Channels()
 	time.Sleep(50 * time.Millisecond)
 	sendMsg(nw.LocalIP, "", cl.System, cl.Startup, send)
+	ticker := time.NewTicker(3*time.Second)
+
 	sl.StartupTimer.Reset(50 * time.Millisecond)
 	for {
 		select {
@@ -67,6 +69,9 @@ func Run() {
 		case <-sl.MotorTimer.C:
 			sl.EngineState = cl.EngineFail
 			sendMsg(sl.MasterID, "", cl.System, cl.EngineFail, send)
+		case <- ticker.C:
+			fmt.Println("slave_tick")
+
 		}
 	}
 }
@@ -100,8 +105,10 @@ func handleInput(sl *Slave, nw *network.Network, message network.Message, send c
 		switch message.Content {
 		case cl.Failed:
 			//Assumes lost connection on timeout. This will be changed later
-			sendMsg(nw.LocalIP, nw.LocalIP, cl.System, cl.SetMaster, send)
-			sl.MasterID = nw.LocalIP
+			if sl.MasterID != nw.LocalIP {
+				sendMsg(nw.LocalIP, "", cl.System, cl.SetMaster, send)
+				sl.MasterID = nw.LocalIP
+			}
 		}
 	case cl.System:
 		switch message.Content {

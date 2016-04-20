@@ -1,6 +1,7 @@
 package scheduler
 
 import (
+"fmt"
 	"github.com/holwech/heislab/cl"
 	"github.com/holwech/heislab/network"
 )
@@ -22,6 +23,7 @@ type ElevatorState struct {
 	InnerOrders           [4]bool
 	OuterOrdersUp           [4]bool
 	OuterOrdersDown         [4]bool
+	EngineFail bool
 
 }
 
@@ -52,7 +54,7 @@ func (elev *ElevatorState) hasMoreOrders() bool {
 
 func NewSystem() *System {
 	var s System
-	s.Commands = make(chan network.Message, 10)
+	s.Commands = make(chan network.Message, 100)
 	s.Elevators = make(map[string]ElevatorState)
 	return &s
 }
@@ -97,8 +99,22 @@ func (sys *System) ClearOrder(elevatorIP string, floor int) {
 	}
 }
 
-
-
+func (sys *System) UnassignOuterOrders(elevatorIP string) {
+	elevator, inSystem := sys.Elevators[elevatorIP]
+	if inSystem {
+		for floor := 0; floor < 4; floor++{
+			if elevator.OuterOrdersUp[floor]{
+				sys.UnhandledOrdersUp[floor] = true
+				elevator.OuterOrdersUp[floor] = false
+			}
+			if elevator.OuterOrdersDown[floor]{
+				sys.UnhandledOrdersDown[floor] = true
+				elevator.OuterOrdersDown[floor] = false
+			}
+		}
+		sys.Elevators[elevatorIP] = elevator
+	}
+}
 
 func (sys *System) SetBehaviour(elevatorIP string, behaviour Behaviour) {
 	elevator, inSystem := sys.Elevators[elevatorIP]
@@ -114,4 +130,30 @@ func (sys *System) SetDirection(elevatorIP string, direction int) {
 		elevator.Direction = direction
 		sys.Elevators[elevatorIP] = elevator
 	}
+}
+
+func (sys *System) Print(){
+	for elevatorIP,elevator := range sys.Elevators{
+		fmt.Printf("%s:, floor: %d, direction: %d,",elevatorIP,elevator.Floor,elevator.Direction)
+		switch elevator.CurrentBehaviour{
+		case Idle:
+			fmt.Print(" Idle, ")
+		case Moving:
+			fmt.Printf(" Moving, ")
+		case DoorOpen:
+			fmt.Printf(" DoorOpen, ")
+		case AwaitingCommand:
+			fmt.Printf(" AwaitingCommand, ")
+		}
+		fmt.Print(elevator.InnerOrders)
+		fmt.Print(elevator.OuterOrdersUp)
+		fmt.Print(elevator.OuterOrdersDown)
+		fmt.Println("")
+		fmt.Println("--------------------------")
+	}
+	fmt.Println(sys.UnhandledOrdersUp)
+	fmt.Println(sys.UnhandledOrdersDown	)
+	fmt.Println("")
+	fmt.Println("--------------------------")
+
 }

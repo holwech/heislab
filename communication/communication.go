@@ -109,7 +109,7 @@ func msgSorter(cm *Communication) {
 			currentTime := time.Now()
 			for msgID, metadata := range messageLog {
 				timeDiff := currentTime.Sub(metadata.SendTime)
-				if timeDiff > 50 * time.Millisecond {
+				if timeDiff > 500 * time.Millisecond {
 					delete(messageLog, msgID)
 					status := CommData{
 						Key:        com_id,
