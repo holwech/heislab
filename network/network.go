@@ -8,8 +8,8 @@ import (
 )
 
 const info = true
+const conn = true
 const printAll = false
-const conn = false
 
 type Message struct {
 	Sender, Receiver, ID, Response string
@@ -17,8 +17,8 @@ type Message struct {
 }
 
 type Network struct {
-	slaveReceive, slaveSend, masterReceive, masterSend chan Message
-	LocalIP                                            string
+	Receive, Send chan Message
+	SenderType, LocalIP, ReadPort, WritePort string
 }
 
 func printInfo(comment string, message *Message) {
@@ -57,30 +57,27 @@ func LocalIP() string {
 	return communication.GetLocalIP()
 }
 
-func InitNetwork() *Network {
+func (nw *Network) Init(readPort string, writePort string, senderType string) {
+	nw.Receive = make(chan Message)
+	nw.Send = make(chan Message, 2)
+	nw.ReadPort = readPort
+	nw.WritePort = writePort
+	nw.SenderType = senderType
+}
+
+func (nw *Network) Channels() (<-chan Message, chan<- Message) {
+	return nw.Receive, nw.Send
+}
+
+func InitNetwork(readPort string, writePort string, senderType string) *Network {
 	nw := new(Network)
-	nw.Init()
+	nw.Init(readPort, writePort, senderType)
 	Run(nw)
 	return nw
 }
 
-func (nw *Network) Init() {
-	nw.slaveReceive = make(chan Message)
-	nw.masterReceive = make(chan Message)
-	nw.slaveSend = make(chan Message, 2)
-	nw.masterSend = make(chan Message)
-}
-
-func (nw *Network) SChannels() (<-chan Message, chan<- Message) {
-	return nw.slaveReceive, nw.slaveSend
-}
-
-func (nw *Network) MChannels() (<-chan Message, chan<- Message) {
-	return nw.masterReceive, nw.masterSend
-}
-
 func Run(nw *Network) {
-	commReceive, commSend := communication.Init()
+	commReceive, commSend := communication.Init(nw.ReadPort, nw.WritePort)
 	nw.LocalIP = communication.GetLocalIP()
 	go sorter(nw, commSend, commReceive)
 }
@@ -88,10 +85,7 @@ func Run(nw *Network) {
 func sorter(nw *Network, commSend chan<- communication.CommData, commReceive <-chan communication.CommData) {
 	for {
 		select {
-		case message := <-nw.slaveSend:
-			commMsg := *communication.ResolveMsg(nw.LocalIP, message.Receiver, message.ID, message.Response, message.Content)
-			commSend <- commMsg
-		case message := <-nw.masterSend:
+		case message := <-nw.Send:
 			commMsg := *communication.ResolveMsg(nw.LocalIP, message.Receiver, message.ID, message.Response, message.Content)
 			commSend <- commMsg
 		case message := <-commReceive:
@@ -102,14 +96,16 @@ func sorter(nw *Network, commSend chan<- communication.CommData, commReceive <-c
 			}
 			if convMsg.Response != cl.Connection && convMsg.ID[0] == 'M' &&
 				(convMsg.Receiver == nw.LocalIP || convMsg.Receiver == cl.All) ||
-				(convMsg.Response == cl.Connection && convMsg.ID[0] == 'S') {
-				nw.slaveReceive <- convMsg
+				(convMsg.Response == cl.Connection && convMsg.ID[0] == 'S') &&
+				nw.SenderType == cl.Slave {
+				nw.Receive <- convMsg
 				printInfo("Slave received message", &convMsg)
 			}
 			if ((convMsg.ID[0] == 'S') && (convMsg.Response != cl.Connection)) ||
 				((convMsg.ID[0] == 'M') && (convMsg.Response == cl.Connection) &&
-					(convMsg.Receiver == nw.LocalIP)) {
-				nw.masterReceive <- convMsg
+					(convMsg.Receiver == nw.LocalIP)) &&
+					nw.SenderType == cl.Master {
+				nw.Receive <- convMsg
 				printInfo("Master received message", &convMsg)
 			}
 		}

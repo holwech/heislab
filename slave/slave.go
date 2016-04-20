@@ -33,44 +33,44 @@ func initSlave() *Slave {
 
 func Run() {
 	innerChan, outerChan, floorChan := driver.InitElevator()
-	nw := network.InitNetwork()
-	master.InitMaster(nw)
+	nw := network.InitNetwork(cl.SReadPort, cl.SWritePort, cl.Slave)
+	master.InitMaster()
 	sl := initSlave()
-	slaveReceive, slaveSend := nw.SChannels()
-	send(nw.LocalIP, "", cl.System, cl.Startup, slaveSend)
+	receive, send := nw.Channels()
+	sendMsg(nw.LocalIP, "", cl.System, cl.Startup, send)
 	sl.StartupTimer.Reset(50 * time.Millisecond)
 	for {
 		select {
 		case innerOrder := <-innerChan:
-			send(sl.MasterID, "", cl.InnerOrder, innerOrder, slaveSend)
+			sendMsg(sl.MasterID, "", cl.InnerOrder, innerOrder, send)
 		case outerOrder := <-outerChan:
-			send(sl.MasterID, "", cl.OuterOrder, outerOrder, slaveSend)
+			sendMsg(sl.MasterID, "", cl.OuterOrder, outerOrder, send)
 		case newFloor := <-floorChan:
 			fmt.Printf("Floor: %d\n", newFloor)
-			send(sl.MasterID, "", cl.Floor, newFloor, slaveSend)
+			sendMsg(sl.MasterID, "", cl.Floor, newFloor, send)
 			if newFloor != -1 {
 				sl.MotorTimer.Reset(6 * time.Second)
 				if sl.EngineState == cl.EngineFail {
 					sl.EngineState = cl.EngineOK
-					send(sl.MasterID, "", cl.System, cl.EngineOK, slaveSend)
+					sendMsg(sl.MasterID, "", cl.System, cl.EngineOK, send)
 				}
 			}
 		case <-sl.DoorTimer.C:
 			driver.SetDoorLamp(0)
-			send(sl.MasterID, "", cl.DoorClosed, "", slaveSend)
-		case message := <-slaveReceive:
-			handleInput(sl, nw, message, slaveSend)
+			sendMsg(sl.MasterID, "", cl.DoorClosed, "", send)
+		case message := <- receive:
+			handleInput(sl, nw, message, send)
 		case <-sl.StartupTimer.C:
-			send(nw.LocalIP, "", cl.System, cl.SetMaster, slaveSend)
+			sendMsg(nw.LocalIP, "", cl.System, cl.SetMaster, send)
 			sl.MasterID = nw.LocalIP
 		case <-sl.MotorTimer.C:
 			sl.EngineState = cl.EngineFail
-			send(sl.MasterID, "", cl.System, cl.EngineFail, slaveSend)
+			sendMsg(sl.MasterID, "", cl.System, cl.EngineFail, send)
 		}
 	}
 }
 
-func handleInput(sl *Slave, nw *network.Network, message network.Message, slaveSend chan<- network.Message) {
+func handleInput(sl *Slave, nw *network.Network, message network.Message, send chan<- network.Message) {
 	switch message.Response {
 	case cl.Up:
 		driver.SetMotorDirection(1)
@@ -99,7 +99,7 @@ func handleInput(sl *Slave, nw *network.Network, message network.Message, slaveS
 		switch message.Content {
 		case cl.Failed:
 			//Assumes lost connection on timeout. This will be changed later
-			send(nw.LocalIP, nw.LocalIP, cl.System, cl.SetMaster, slaveSend)
+			sendMsg(nw.LocalIP, nw.LocalIP, cl.System, cl.SetMaster, send)
 			sl.MasterID = nw.LocalIP
 		}
 	case cl.System:
@@ -111,7 +111,7 @@ func handleInput(sl *Slave, nw *network.Network, message network.Message, slaveS
 	}
 }
 
-func send(masterID string, id string, response string, content interface{}, slaveSend chan<- network.Message) {
+func sendMsg(masterID string, id string, response string, content interface{}, send chan<- network.Message) {
 	if id == "" {
 		id = network.CreateID(cl.Slave)
 	}
@@ -121,5 +121,5 @@ func send(masterID string, id string, response string, content interface{}, slav
 		Response: response,
 		Content:  content,
 	}
-	slaveSend <- message
+	send <- message
 }

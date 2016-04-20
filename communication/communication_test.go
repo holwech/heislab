@@ -4,10 +4,11 @@ import (
 	"testing"
 	"time"
 	"github.com/satori/go.uuid"
+	"github.com/holwech/heislab/cl"
 )
 
 func TestSend(t *testing.T) {
-	receiveCh, sendCh := Init()
+	receiveCh, sendCh := Init(cl.SReadPort, cl.SReadPort)
 	go RunPrintMsg(receiveCh)
 	count := 0
 	for{
@@ -20,7 +21,7 @@ func TestSend(t *testing.T) {
 }
 
 func TestSendAndListen(t *testing.T) {
-	receiveCh, sendCh := Init()
+	receiveCh, sendCh := Init(cl.SReadPort, cl.SReadPort)
 	go RunPrintMsg(receiveCh)
 	time.Sleep(1 * time.Second)
 	count := 0
@@ -35,7 +36,7 @@ func TestSendAndListen(t *testing.T) {
 
 
 func TestListen(t *testing.T) {
-	receiveCh, _ := Init()
+	receiveCh, _ := Init(cl.SReadPort, cl.SReadPort)
 	go RunPrintMsg(receiveCh)
 	time.Sleep(1 * time.Second)
 	count := 0
