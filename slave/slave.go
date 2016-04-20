@@ -37,6 +37,7 @@ func Run() {
 	master.InitMaster()
 	sl := initSlave()
 	receive, send := nw.Channels()
+	time.Sleep(50 * time.Millisecond)
 	sendMsg(nw.LocalIP, "", cl.System, cl.Startup, send)
 	sl.StartupTimer.Reset(50 * time.Millisecond)
 	for {

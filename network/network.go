@@ -60,6 +60,7 @@ func LocalIP() string {
 func (nw *Network) Init(readPort string, writePort string, senderType string) {
 	nw.Receive = make(chan Message)
 	nw.Send = make(chan Message, 2)
+	nw.LocalIP = communication.GetLocalIP()
 	nw.ReadPort = readPort
 	nw.WritePort = writePort
 	nw.SenderType = senderType
@@ -78,7 +79,6 @@ func InitNetwork(readPort string, writePort string, senderType string) *Network 
 
 func Run(nw *Network) {
 	commReceive, commSend := communication.Init(nw.ReadPort, nw.WritePort)
-	nw.LocalIP = communication.GetLocalIP()
 	go sorter(nw, commSend, commReceive)
 }
 
@@ -86,7 +86,10 @@ func sorter(nw *Network, commSend chan<- communication.CommData, commReceive <-c
 	for {
 		select {
 		case message := <-nw.Send:
+			fmt.Println(message.Sender)
 			commMsg := *communication.ResolveMsg(nw.LocalIP, message.Receiver, message.ID, message.Response, message.Content)
+			fmt.Println(nw.SenderType + " sent message!!!!!!!")
+			communication.PrintMessage(commMsg)
 			commSend <- commMsg
 		case message := <-commReceive:
 			convMsg := commToMsg(&message)
