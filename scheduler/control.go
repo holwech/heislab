@@ -79,6 +79,9 @@ func (sys *System) AssignOuterOrders() {
 				minCostElev.OuterOrdersUp[floor] = true
 				sys.Elevators[minCostElevIP] = minCostElev
 				sys.UnhandledOrdersUp[floor] = false
+				if minCostElev.CurrentBehaviour == Idle{
+					sys.SetBehaviour(minCostElevIP,AwaitingCommand)
+				}
 			}
 		}
 		if sys.UnhandledOrdersDown[floor] {
@@ -101,6 +104,9 @@ func (sys *System) AssignOuterOrders() {
 				minCostElev.OuterOrdersDown[floor] = true
 				sys.Elevators[minCostElevIP] = minCostElev
 				sys.UnhandledOrdersDown[floor] = false
+				if minCostElev.CurrentBehaviour == Idle{
+					sys.SetBehaviour(minCostElevIP,AwaitingCommand)
+				}
 			}
 		}
 	}
@@ -123,19 +129,29 @@ func (sys *System) CommandConnectedElevators() {
 				sys.ClearOrder(elevIP, elev.Floor)
 				sys.SetBehaviour(elevIP, DoorOpen)
 			}else{
-				for floor := 0; floor < 4; floor++ {
-					var command network.Message
-					command.Receiver = elevIP
-					if elev.Floor > floor {
-						command.Response = cl.Down
-						sys.SetDirection(elevIP, -1)
-					}else if elev.Floor < floor {
-						command.Response = cl.Up
-						sys.SetDirection(elevIP, 1)
+				var command network.Message	
+				command.Receiver = elevIP
+				if elev.Direction == 1{
+					command.Response = cl.Down
+					sys.SetDirection(elevIP, -1)
+					for floor := elev.Floor+1; floor < 4; floor++{
+						if elev.hasOrderAtFloor(floor){
+							command.Response = cl.Up
+							sys.SetDirection(elevIP, 1)
+						}
 					}
-					sys.SetBehaviour(elevIP, Moving)
-					sys.Commands <- command
+				}else{
+					command.Response = cl.Up
+					sys.SetDirection(elevIP, 1)
+					for floor := 0; floor < elev.Floor; floor++{
+						if elev.hasOrderAtFloor(floor){
+							command.Response = cl.Down
+							sys.SetDirection(elevIP, -1)
+						}
+					}
 				}
+				sys.Commands <- command
+				sys.SetBehaviour(elevIP, Moving)	
 			}
 		}
 	}

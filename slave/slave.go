@@ -39,6 +39,8 @@ func Run() {
 	slaveReceive, slaveSend := nw.SChannels()
 	sl.StartupTimer.Reset(50 * time.Millisecond)
 	send(nw.LocalIP, "", cl.System, cl.Startup, slaveSend)
+
+	ticker := time.NewTicker(3*time.Second)
 	for {
 		select {
 		case innerOrder := <-innerChan:
@@ -67,6 +69,8 @@ func Run() {
 		case <-sl.MotorTimer.C:
 			sl.EngineState = cl.EngineFail
 			send(sl.MasterID, "", cl.System, cl.EngineFail, slaveSend)
+		case <- ticker.C:
+			fmt.Println("slave_tick")
 		}
 	}
 }

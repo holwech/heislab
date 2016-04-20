@@ -1,10 +1,11 @@
 package master
 
 import (
+	"fmt"
+	"time"
 	"github.com/holwech/heislab/cl"
 	"github.com/holwech/heislab/network"
 	"github.com/holwech/heislab/scheduler"
-	"fmt"
 )
 
 func InitMaster(nw *network.Network) {
@@ -18,6 +19,7 @@ func Run(nw *network.Network) {
 	sys := scheduler.NewSystem()
 	isActiveMaster := false
 
+	ticker := time.NewTicker(3*time.Second)
 	for {
 		select {
 		case message := <-receiveMaster:
@@ -57,14 +59,16 @@ func Run(nw *network.Network) {
 			}
 			sys.AssignOuterOrders()
 			sys.CommandConnectedElevators()
-			fmt.Println(sys)
-			for command := range sys.Commands{
-				if isActiveMaster {
-					command.Sender = nw.LocalIP
-					command.ID = network.CreateID(cl.Master)
-					sendMaster <- command
-				}				
-			}
+			sys.Print()
+		case command := <- sys.Commands:
+			if isActiveMaster {
+				command.Sender = nw.LocalIP
+				command.ID = network.CreateID(cl.Master)
+				sendMaster <- command
+			}		
+		case <-ticker.C:
+			fmt.Println("master_tick")
 		}
+
 	}
 }
