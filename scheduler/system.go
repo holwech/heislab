@@ -23,6 +23,7 @@ type ElevatorState struct {
 	InnerOrders           [4]bool
 	OuterOrdersUp           [4]bool
 	OuterOrdersDown         [4]bool
+	EngineFail bool
 
 }
 
@@ -98,8 +99,22 @@ func (sys *System) ClearOrder(elevatorIP string, floor int) {
 	}
 }
 
-
-
+func (sys *System) UnassignOuterOrders(elevatorIP string) {
+	elevator, inSystem := sys.Elevators[elevatorIP]
+	if inSystem {
+		for floor := 0; floor < 4; floor++{
+			if elevator.OuterOrdersUp[floor]{
+				sys.UnhandledOrdersUp[floor] = true
+				elevator.OuterOrdersUp[floor] = false
+			}
+			if elevator.OuterOrdersDown[floor]{
+				sys.UnhandledOrdersDown[floor] = true
+				elevator.OuterOrdersDown[floor] = false
+			}
+		}
+		sys.Elevators[elevatorIP] = elevator
+	}
+}
 
 func (sys *System) SetBehaviour(elevatorIP string, behaviour Behaviour) {
 	elevator, inSystem := sys.Elevators[elevatorIP]

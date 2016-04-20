@@ -55,6 +55,10 @@ func Run(nw *network.Network) {
 					sys.AddElevator(message.Sender)
 				case cl.SetMaster:
 					isActiveMaster = true
+				case cl.EngineFail:
+					sys.NotifyEngineFail(message.Sender)
+				case cl.EngineOK:
+					sys.NotifyEngineOk(message.Sender)
 				}
 			}
 			sys.AssignOuterOrders()

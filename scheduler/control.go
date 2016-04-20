@@ -57,6 +57,31 @@ func (sys *System) NotifyDoorClosed(elevatorIP string) {
 	}
 }
 
+func (sys *System) NotifyEngineFail(elevatorIP string) {
+	elevator, inSystem := sys.Elevators[elevatorIP]
+	if inSystem {
+		elevator.EngineFail = true
+		sys.UnassignOuterOrders(elevatorIP)
+		if !elevator.hasMoreOrders(){
+			if elevator.Direction == 1{
+				elevator.InnerOrders[elevator.Floor+1] = true
+			}else{
+				elevator.InnerOrders[elevator.Floor-1] = true
+			}
+			sys.SetBehaviour(elevatorIP,AwaitingCommand)
+		}
+		sys.Elevators[elevatorIP] = elevator
+	}
+}
+
+func (sys *System) NotifyEngineOk(elevatorIP string) {
+	elevator, inSystem := sys.Elevators[elevatorIP]
+	if inSystem {
+		elevator.EngineFail = false
+		sys.Elevators[elevatorIP] = elevator
+	}
+}
+
 func (sys *System) AssignOuterOrders() {
 	for floor := 0; floor < 4; floor++ {
 		if sys.UnhandledOrdersUp[floor] {
@@ -159,6 +184,9 @@ func (sys *System) CommandConnectedElevators() {
 
 
 func (elev *ElevatorState) costOfOuterOrder(floor, direction int) int {
+	if elev.EngineFail{
+		return MAXCOST
+	}
 	switch elev.CurrentBehaviour {
 	case Idle:
 		return 100 * intAbs(elev.Floor-floor)
