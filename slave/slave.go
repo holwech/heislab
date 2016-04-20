@@ -37,8 +37,8 @@ func Run() {
 	master.InitMaster(nw)
 	sl := initSlave()
 	slaveReceive, slaveSend := nw.SChannels()
-	sl.StartupTimer.Reset(50 * time.Millisecond)
 	send(nw.LocalIP, "", cl.System, cl.Startup, slaveSend)
+	sl.StartupTimer.Reset(50 * time.Millisecond)
 	for {
 		select {
 		case innerOrder := <-innerChan:
@@ -53,7 +53,6 @@ func Run() {
 				if sl.EngineState == cl.EngineFail {
 					sl.EngineState = cl.EngineOK
 					send(sl.MasterID, "", cl.System, cl.EngineOK, slaveSend)
-
 				}
 			}
 		case <-sl.DoorTimer.C:
