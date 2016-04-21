@@ -11,53 +11,46 @@ const m = true
 const s = true
 
 func TestSend(t *testing.T) {
-	nw := InitNetwork()
-	slaveReceive, slaveSend := nw.SChannels()
-	masterReceive, _ := nw.MChannels()
-	go sender(slaveSend)
+	nw := InitNetwork(cl.SReadPort, cl.SWritePort, cl.Slave)
+	receive, send := nw.Channels()
+	go sender(send)
 	time.Sleep(time.Second)
-	go receiver(slaveReceive, masterReceive)
+	go receiver(receive)
 	time.Sleep(time.Second * 360)
 }
 
 func TestListen(t *testing.T) {
-	nw := InitNetwork()
-	slaveReceive, _ := nw.SChannels()
-	masterReceive, _ := nw.MChannels()
+	nw := InitNetwork(cl.MReadPort, cl.MWritePort, cl.Master)
+	receive, _ := nw.Channels()
 	time.Sleep(time.Second)
-	go receiver(slaveReceive, masterReceive)
+	go receiver(receive)
 	time.Sleep(time.Second * 360)
 }
 
 
-func sender(slaveSend chan<- Message) {
+func sender(send chan<- Message) {
 	count := 0
 	for{
 		time.Sleep(time.Second * 5)
 		message := Message{
 			LocalIP(),
       LocalIP(),
-			CreateID(cl.Master),
+			CreateID(cl.Slave),
 			"Test",
 			count,
 		}
 		count += 1
-		slaveSend <- message
+		send <- message
 		fmt.Printf("DEBUG: Sending %d\n", count)
 		PrintMessage(&message)
 	}
 }
 
 
-func receiver(slaveReceive <- chan Message, masterReceive <- chan Message) {
+func receiver(receive <- chan Message) {
 	for {
 		select{
-		case message := <- slaveReceive:
-				fmt.Println("Message to slave")
-				PrintMessage(&message)
-		case message := <- masterReceive:
-				fmt.Println("Message to master")
-				PrintMessage(&message)
+		case <- receive:
 		}
 	}
 }

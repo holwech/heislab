@@ -11,12 +11,11 @@ import (
 )
 
 const com_id = "2323" //Key for all elevators on the system
-const port = ":22222"
 const broadcast_addr = "255.255.255.255"
 
 type Communication struct {
 	CommReceive, CommSend, Receive, Send chan CommData
-	LocalIP string
+	LocalIP, ReadPort, WritePort string
 }
 
 type CommData struct {
@@ -35,24 +34,26 @@ func printError(errMsg string, err error) {
 	fmt.Println()
 }
 
-func (cm *Communication) Init() {
+func (cm *Communication) Init(readPort, writePort string) {
 	cm.CommReceive = make(chan CommData, 10)
 	cm.CommSend = make(chan CommData)
 	cm.Receive = make(chan CommData)
 	cm.Send = make(chan CommData)
 	cm.LocalIP = GetLocalIP()
+	cm.ReadPort = readPort
+	cm.WritePort = writePort
 }
 
-func Init() (<-chan CommData, chan<- CommData) {
+func Init(readPort string, writePort string) (<-chan CommData, chan<- CommData) {
 	cm := new(Communication)
-	cm.Init()
+	cm.Init(readPort, writePort)
 	run(cm)
 	return cm.Receive, cm.Send
 }
 
 func run(cm *Communication) {
-	go listen(cm.CommReceive)
-	go broadcast(cm.CommSend)
+	go listen(cm.CommReceive, cm.ReadPort)
+	go broadcast(cm.CommSend, cm.LocalIP, cm.WritePort)
 	go msgSorter(cm)
 }
 
@@ -108,7 +109,7 @@ func msgSorter(cm *Communication) {
 			currentTime := time.Now()
 			for msgID, metadata := range messageLog {
 				timeDiff := currentTime.Sub(metadata.SendTime)
-				if timeDiff > 50 * time.Millisecond {
+				if timeDiff > 500 * time.Millisecond {
 					delete(messageLog, msgID)
 					status := CommData{
 						Key:        com_id,
@@ -126,7 +127,7 @@ func msgSorter(cm *Communication) {
 }
 
 
-func broadcast(commSend chan CommData) {
+func broadcast(commSend chan CommData, localIP string, port string) {
 	fmt.Printf("COMM: Broadcasting message to: %s%s\n", broadcast_addr, port)
 	broadcastAddress, err := net.ResolveUDPAddr("udp", broadcast_addr+port)
 	if err != nil {
@@ -151,7 +152,7 @@ func broadcast(commSend chan CommData) {
 	}
 }
 
-func listen(commReceive chan CommData) {
+func listen(commReceive chan CommData, port string) {
 	localAddress, err := net.ResolveUDPAddr("udp", port)
 	if err != nil {
 		printError("=== ERROR: ResolvingUDPAddr in Listen failed.", err)

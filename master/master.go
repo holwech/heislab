@@ -8,21 +8,22 @@ import (
 	"github.com/holwech/heislab/scheduler"
 )
 
-func InitMaster(nw *network.Network) {
-	go Run(nw)
+func InitMaster() {
+	go Run()
 }
 
 //Listen to inputs from slaves and send commands back
 //Will the behaviour and order list be the same on all masters running?
-func Run(nw *network.Network) {
-	receiveMaster, sendMaster := nw.MChannels()
+func Run() {
+	nw := network.InitNetwork(cl.MReadPort, cl.MWritePort, cl.Master)
+	receive, send := nw.Channels()
 	sys := scheduler.NewSystem()
 	isActiveMaster := false
 
 	ticker := time.NewTicker(3*time.Second)
 	for {
 		select {
-		case message := <-receiveMaster:
+		case message := <-receive:
 			switch message.Response {
 			case cl.InnerOrder:
 				content := message.Content.(map[string]interface{})
@@ -50,7 +51,7 @@ func Run(nw *network.Network) {
 				case cl.Startup:
 					if isActiveMaster {
 						ping := network.Message{nw.LocalIP, message.Sender, network.CreateID(cl.Master), cl.JoinMaster, ""}
-						sendMaster <- ping
+						send <- ping
 					}
 					sys.AddElevator(message.Sender)
 				case cl.SetMaster:
@@ -64,11 +65,12 @@ func Run(nw *network.Network) {
 			sys.AssignOuterOrders()
 			sys.CommandConnectedElevators()
 			sys.Print()
+			fmt.Println(len(sys.Commands))
 		case command := <- sys.Commands:
 			if isActiveMaster {
 				command.Sender = nw.LocalIP
 				command.ID = network.CreateID(cl.Master)
-				sendMaster <- command
+				send <- command
 			}		
 		case <-ticker.C:
 			fmt.Println("master_tick")

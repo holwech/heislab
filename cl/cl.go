@@ -51,3 +51,11 @@ var OK string = "OK"
 var Timeout string = "TIMEOUT"
 var Sent string = "SENT"
 var Failed string = "FAILED"
+
+
+// === Ports
+var SReadPort string = ":25101"
+var SWritePort string = ":25010"
+
+var MReadPort string = ":25010"
+var MWritePort string = ":25101"
