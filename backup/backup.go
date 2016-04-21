@@ -42,7 +42,7 @@ func listen() {
 	go func(input chan string, connection *net.UDPConn) {
 		for {
 			buffer := make([]byte, 4096)
-			length, _, err := connection.ReadFromUDP(buffer)
+			length, _, _ := connection.ReadFromUDP(buffer)
 			buffer = buffer[:length]
 			input <- string(buffer)
 		}
