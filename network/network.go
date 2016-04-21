@@ -59,7 +59,7 @@ func LocalIP() string {
 
 func (nw *Network) Init(readPort string, writePort string, senderType string) {
 	nw.Receive = make(chan Message)
-	nw.Send = make(chan Message, 2)
+	nw.Send = make(chan Message)
 	nw.LocalIP = communication.GetLocalIP()
 	nw.ReadPort = readPort
 	nw.WritePort = writePort
@@ -79,38 +79,42 @@ func InitNetwork(readPort string, writePort string, senderType string) *Network 
 
 func Run(nw *Network) {
 	commReceive, commSend := communication.Init(nw.ReadPort, nw.WritePort)
-	go sorter(nw, commSend, commReceive)
+	go receiver(nw, commReceive)
+	go sender(nw, commSend)
 }
 
-func sorter(nw *Network, commSend chan<- communication.CommData, commReceive <-chan communication.CommData) {
+func sender(nw *Network, commSend chan<- communication.CommData) {
 	for {
-		select {
-		case message := <-nw.Send:
-			fmt.Println(message.Sender)
-			commMsg := *communication.ResolveMsg(nw.LocalIP, message.Receiver, message.ID, message.Response, message.Content)
-			fmt.Println(nw.SenderType + " sent message!!!!!!!")
-			communication.PrintMessage(commMsg)
-			commSend <- commMsg
-		case message := <-commReceive:
-			convMsg := commToMsg(&message)
-			assertMsg(&convMsg)
-			if printAll {
-				PrintMessage(&convMsg)
-			}
-			if convMsg.Response != cl.Connection && convMsg.ID[0] == 'M' &&
-				(convMsg.Receiver == nw.LocalIP || convMsg.Receiver == cl.All) ||
-				(convMsg.Response == cl.Connection && convMsg.ID[0] == 'S') &&
-					nw.SenderType == cl.Slave {
-				nw.Receive <- convMsg
-				printInfo("Slave received message", &convMsg)
-			}
-			if ((convMsg.ID[0] == 'S') && (convMsg.Response != cl.Connection)) ||
-				((convMsg.ID[0] == 'M') && (convMsg.Response == cl.Connection) &&
-					(convMsg.Receiver == nw.LocalIP)) &&
-					nw.SenderType == cl.Master {
-				nw.Receive <- convMsg
-				printInfo("Master received message", &convMsg)
-			}
+		message := <-nw.Send
+		fmt.Println(message.Sender)
+		commMsg := *communication.ResolveMsg(nw.LocalIP, message.Receiver, message.ID, message.Response, message.Content)
+		fmt.Println(nw.SenderType + " sent message!!!!!!!")
+		communication.PrintMessage(commMsg)
+		commSend <- commMsg
+	}
+}
+
+func receiver(nw *Network, commReceive <-chan communication.CommData) {
+	for {
+		message := <-commReceive
+		convMsg := commToMsg(&message)
+		assertMsg(&convMsg)
+		if printAll {
+			PrintMessage(&convMsg)
+		}
+		if convMsg.Response != cl.Connection && convMsg.ID[0] == 'M' &&
+			(convMsg.Receiver == nw.LocalIP || convMsg.Receiver == cl.All) ||
+			(convMsg.Response == cl.Connection && convMsg.ID[0] == 'S') &&
+				nw.SenderType == cl.Slave {
+			nw.Receive <- convMsg
+			printInfo("Slave received message", &convMsg)
+		}
+		if ((convMsg.ID[0] == 'S') && (convMsg.Response != cl.Connection)) ||
+			((convMsg.ID[0] == 'M') && (convMsg.Response == cl.Connection) &&
+				(convMsg.Receiver == nw.LocalIP)) &&
+				nw.SenderType == cl.Master {
+			nw.Receive <- convMsg
+			printInfo("Master received message", &convMsg)
 		}
 	}
 }

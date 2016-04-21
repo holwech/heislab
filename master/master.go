@@ -20,7 +20,7 @@ func Run() {
 	sys := scheduler.NewSystem()
 	isActiveMaster := false
 
-	ticker := time.NewTicker(3 * time.Second)
+	ticker := time.NewTicker(8 * time.Second)
 	for {
 		select {
 		case message := <-receive:
@@ -73,7 +73,7 @@ func Run() {
 				send <- command
 			}
 		case <-ticker.C:
-			//fmt.Println("master_tick")
+			fmt.Println("master_tick")
 		}
 
 	}
