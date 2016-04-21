@@ -39,7 +39,7 @@ func Run() {
 	receive, send := nw.Channels()
 	time.Sleep(50 * time.Millisecond)
 	sendMsg(nw.LocalIP, "", cl.System, cl.Startup, send)
-	ticker := time.NewTicker(3 * time.Second)
+	ticker := time.NewTicker(8 * time.Second)
 
 	sl.StartupTimer.Reset(50 * time.Millisecond)
 	for {
