@@ -11,7 +11,7 @@ func main() {
 	if len(os.Args) > 1 {
 		backup.Run(os.Args[1])
 	} else {
-		backup.Run("-f")
+		backup.Run("")
 	}
-	for{}
+	slave.Run()
 }
