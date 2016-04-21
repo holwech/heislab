@@ -73,7 +73,7 @@ func Run() {
 				send <- command
 			}
 		case <-ticker.C:
-			//fmt.Println("master_tick")
+			fmt.Println("master_tick")
 		}
 
 	}

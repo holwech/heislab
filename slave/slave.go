@@ -70,7 +70,7 @@ func Run() {
 			sl.EngineState = cl.EngineFail
 			sendMsg(sl.MasterID, "", cl.System, cl.EngineFail, send)
 		case <-ticker.C:
-			//fmt.Println("slave_tick")
+			fmt.Println("slave_tick")
 
 		}
 	}
