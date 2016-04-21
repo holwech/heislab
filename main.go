@@ -1,10 +1,10 @@
 package main
 
 import (
+	"fmt"
 	"github.com/holwech/heislab/backup"
 	"github.com/holwech/heislab/slave"
 	"os"
-	"fmt"
 )
 
 func main() {

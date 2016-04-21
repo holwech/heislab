@@ -7,9 +7,6 @@ import (
 	"github.com/holwech/heislab/master"
 	"github.com/holwech/heislab/network"
 	"time"
-	"os/exec"
-	"bufio"
-	"os"
 )
 
 type Slave struct {
@@ -42,10 +39,9 @@ func Run() {
 	receive, send := nw.Channels()
 	time.Sleep(50 * time.Millisecond)
 	sendMsg(nw.LocalIP, "", cl.System, cl.Startup, send)
-	ticker := time.NewTicker(3*time.Second)
+	ticker := time.NewTicker(3 * time.Second)
 
 	sl.StartupTimer.Reset(50 * time.Millisecond)
-	go remoteInstall()
 	for {
 		select {
 		case innerOrder := <-innerChan:
@@ -65,7 +61,7 @@ func Run() {
 		case <-sl.DoorTimer.C:
 			driver.SetDoorLamp(0)
 			sendMsg(sl.MasterID, "", cl.DoorClosed, "", send)
-		case message := <- receive:
+		case message := <-receive:
 			handleInput(sl, nw, message, send)
 		case <-sl.StartupTimer.C:
 			sendMsg(nw.LocalIP, "", cl.System, cl.SetMaster, send)
@@ -73,7 +69,7 @@ func Run() {
 		case <-sl.MotorTimer.C:
 			sl.EngineState = cl.EngineFail
 			sendMsg(sl.MasterID, "", cl.System, cl.EngineFail, send)
-		case <- ticker.C:
+		case <-ticker.C:
 			fmt.Println("slave_tick")
 
 		}
@@ -134,35 +130,4 @@ func sendMsg(masterID string, id string, response string, content interface{}, s
 		Content:  content,
 	}
 	send <- message
-}
-
-func remoteInstall() {
-	elevIP := []string{}
-	reader := bufio.NewReader(os.Stdin)
-	fmt.Println("This is a simple script for installing elevators on remote computers. \n Used on own responsibility, as this script is VERY simple and won't like input that contains any errors \n Good luck!")
-	fmt.Print("Start remote elevators? (y/n) ")
-	ans, _ := reader.ReadString('\n')
-	if ans == "y" || ans == "Y" {
-		for ans == "y" || ans == "Y" {
-			fmt.Print("Insert a IP-address: ")
-			ans, _ = reader.ReadString('\n')
-			elevIP = append(elevIP, ans)
-			fmt.Print("Add another elevator? (y/n) ")
-			ans, _ = reader.ReadString('\n')
-		}
-		fmt.Println("Installing...")
-		for _, elev := range elevIP {
-			command1 := "ssh student@" + elev + ";"
-			command2 := "mkdir $HOME/Desktop/gospace;"
-			command3 := "export GOPATH=$HOME/Desktop/gospace;"
-			command4 := "go get github.com/holwech/heislab;"
-			command5 := "go get github.com/satori/go.uuid;"
-			command6 := "go run $GOPATH/src/github.com/holwech/heislab/main.go;"
-			cmd := exec.Command(command1, command2, command3, command4, command5, command6)
-			cmd.Run()
-			fmt.Println("Elevator " + elev + " installed and started (maybe)")
-		}
-		fmt.Println("Success! (again, maybe)")
-	}
-	fmt.Println("Exiting remote install")
 }
