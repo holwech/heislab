@@ -8,7 +8,7 @@ import (
 )
 
 const info = true
-const conn = true
+const conn = false
 const printAll = false
 
 type Message struct {
@@ -17,7 +17,7 @@ type Message struct {
 }
 
 type Network struct {
-	Receive, Send chan Message
+	Receive, Send                            chan Message
 	SenderType, LocalIP, ReadPort, WritePort string
 }
 
@@ -100,7 +100,7 @@ func sorter(nw *Network, commSend chan<- communication.CommData, commReceive <-c
 			if convMsg.Response != cl.Connection && convMsg.ID[0] == 'M' &&
 				(convMsg.Receiver == nw.LocalIP || convMsg.Receiver == cl.All) ||
 				(convMsg.Response == cl.Connection && convMsg.ID[0] == 'S') &&
-				nw.SenderType == cl.Slave {
+					nw.SenderType == cl.Slave {
 				nw.Receive <- convMsg
 				printInfo("Slave received message", &convMsg)
 			}

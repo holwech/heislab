@@ -15,17 +15,17 @@ const broadcast_addr = "255.255.255.255"
 
 type Communication struct {
 	CommReceive, CommSend, Receive, Send chan CommData
-	LocalIP, ReadPort, WritePort string
+	LocalIP, ReadPort, WritePort         string
 }
 
 type CommData struct {
 	Key, SenderIP, ReceiverIP, MsgID, Response string
-	Content interface{}
+	Content                                    interface{}
 }
 
 type Timestamp struct {
 	SenderIP, MsgID, Status string
-	SendTime time.Time
+	SendTime                time.Time
 }
 
 func printError(errMsg string, err error) {
@@ -36,7 +36,7 @@ func printError(errMsg string, err error) {
 
 func (cm *Communication) Init(readPort, writePort string) {
 	cm.CommReceive = make(chan CommData, 10)
-	cm.CommSend = make(chan CommData)
+	cm.CommSend = make(chan CommData, 10)
 	cm.Receive = make(chan CommData)
 	cm.Send = make(chan CommData)
 	cm.LocalIP = GetLocalIP()
@@ -63,12 +63,12 @@ func msgSorter(cm *Communication) {
 	for {
 		select {
 		// When messages are received
-		case message := <- cm.CommReceive:
+		case message := <-cm.CommReceive:
 			// If message is a receive-confirmation, push to status-channel
 			if message.Response == cl.Connection {
 				// Filters out status-messages that are not relevant for receiver
 				_, exists := messageLog[message.MsgID]
-				if message.ReceiverIP == cm.LocalIP && message.Content == cl.OK && exists{
+				if message.ReceiverIP == cm.LocalIP && message.Content == cl.OK && exists {
 					delete(messageLog, message.MsgID)
 					status := CommData{
 						Key:        com_id,
@@ -96,7 +96,7 @@ func msgSorter(cm *Communication) {
 				}
 			}
 		// When messages are sent, set time-stamp
-		case message := <- cm.Send:
+		case message := <-cm.Send:
 			timeSent := Timestamp{
 				SenderIP: message.SenderIP,
 				MsgID:    message.MsgID,
@@ -109,7 +109,7 @@ func msgSorter(cm *Communication) {
 			currentTime := time.Now()
 			for msgID, metadata := range messageLog {
 				timeDiff := currentTime.Sub(metadata.SendTime)
-				if timeDiff > 500 * time.Millisecond {
+				if timeDiff > 500*time.Millisecond {
 					delete(messageLog, msgID)
 					status := CommData{
 						Key:        com_id,
@@ -125,7 +125,6 @@ func msgSorter(cm *Communication) {
 		}
 	}
 }
-
 
 func broadcast(commSend chan CommData, localIP string, port string) {
 	fmt.Printf("COMM: Broadcasting message to: %s%s\n", broadcast_addr, port)
