@@ -18,9 +18,9 @@ func Run() {
 	nw := network.InitNetwork(cl.MReadPort, cl.MWritePort, cl.Master)
 	receive, send := nw.Channels()
 	sys := scheduler.NewSystem()
+	slaveCommands := make(chan network.Message,100)
 	isActiveMaster := false
 
-	ticker := time.NewTicker(8 * time.Second)
 	for {
 		select {
 		case message := <-receive:
@@ -28,17 +28,17 @@ func Run() {
 			case cl.InnerOrder:
 				content := message.Content.(map[string]interface{})
 				floor := content["Floor"].(int)
-				sys.NotifyInnerOrder(message.Sender, floor)
+				sys.NotifyInnerOrder(message.Sender, floor,slaveCommands)
 
 			case cl.OuterOrder:
 				content := message.Content.(map[string]interface{})
 				floor := content["Floor"].(int)
 				direction := content["Direction"].(int)
-				sys.NotifyOuterOrder(floor, direction)
+				sys.NotifyOuterOrder(floor, direction,slaveCommands)
 
 			case cl.Floor:
 				floor := message.Content.(int)
-				sys.NotifyFloor(message.Sender, floor)
+				sys.NotifyFloor(message.Sender, floor,slaveCommands)
 
 			case cl.DoorClosed:
 				sys.NotifyDoorClosed(message.Sender)
@@ -65,8 +65,8 @@ func Run() {
 			sys.AssignOuterOrders()
 			sys.CommandConnectedElevators()
 			sys.Print()
-			fmt.Println(len(sys.Commands))
-		case command := <-sys.Commands:
+			fmt.Println(len(slaveCommands))
+		case command := <-slaveCommands:
 			if isActiveMaster {
 				command.Sender = nw.LocalIP
 				command.ID = network.CreateID(cl.Master)

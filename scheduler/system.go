@@ -31,7 +31,6 @@ type System struct {
 	Elevators           map[string]ElevatorState
 	UnhandledOrdersUp   [4]bool
 	UnhandledOrdersDown [4]bool
-	Commands            chan network.Message
 }
 
 func (elev *ElevatorState) hasOrderAtFloor(floor int) bool {
@@ -54,7 +53,6 @@ func (elev *ElevatorState) hasMoreOrders() bool {
 
 func NewSystem() *System {
 	var s System
-	s.Commands = make(chan network.Message, 100)
 	s.Elevators = make(map[string]ElevatorState)
 	return &s
 }
