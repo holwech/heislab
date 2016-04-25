@@ -107,7 +107,6 @@ func SystemFromBackup(message network.Message) *System {
 			}
 		}
 	}
-	s.Print()
 	return s
 }
 
