@@ -41,8 +41,9 @@ func Run() {
 			case cl.DoorClosed:
 				sys.NotifyDoorClosed(message.Sender)
 
-			case cl.Timeout:
-				//Future work - check connected elevators
+			case cl.Connection:
+				if message.Response == 
+				///TODO
 				sys.RemoveElevator(message.Sender)
 			case cl.System:
 				switch message.Content {

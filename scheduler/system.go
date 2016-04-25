@@ -15,16 +15,14 @@ const (
 	AwaitingCommand
 )
 
-
 type ElevatorState struct {
-	Floor            int 
+	Floor            int
 	Direction        int
 	CurrentBehaviour Behaviour
-	InnerOrders           [4]bool
-	OuterOrdersUp           [4]bool
-	OuterOrdersDown         [4]bool
-	EngineFail bool
-
+	InnerOrders      [4]bool
+	OuterOrdersUp    [4]bool
+	OuterOrdersDown  [4]bool
+	EngineFail       bool
 }
 
 type System struct {
@@ -34,9 +32,9 @@ type System struct {
 }
 
 func (elev *ElevatorState) hasOrderAtFloor(floor int) bool {
-	if elev.InnerOrders[floor]||
-	elev.OuterOrdersDown[floor]||
-	elev.OuterOrdersUp[floor]{
+	if elev.InnerOrders[floor] ||
+		elev.OuterOrdersDown[floor] ||
+		elev.OuterOrdersUp[floor] {
 		return true
 	}
 	return false
@@ -44,7 +42,7 @@ func (elev *ElevatorState) hasOrderAtFloor(floor int) bool {
 
 func (elev *ElevatorState) hasMoreOrders() bool {
 	for floor := 0; floor < 4; floor++ {
-		if elev.hasOrderAtFloor(floor){
+		if elev.hasOrderAtFloor(floor) {
 			return true
 		}
 	}
@@ -63,10 +61,54 @@ func (sys *System) CreateBackup() network.Message {
 	return backup
 }
 
-func SystemFromBackup(msg network.Message) *System {
-	var s System
-	s = msg.Content.(System)
-	return &s
+func SystemFromBackup(message network.Message) *System {
+	s := NewSystem()
+	for key, val := range message.Content.(map[string]interface{}) {
+		switch val.(type) {
+		case map[string]interface{}:
+			for elevIP, elevInterface := range val.(map[string]interface{}) {
+				var elevTmp ElevatorState
+				fmt.Println(elevIP, elevInterface)
+				for key2, val2 := range elevInterface.(map[string]interface{}) {
+					switch val2.(type) {
+					case float64:
+						switch key2 {
+						case "Direction":
+							elevTmp.Direction = int(val2.(float64))
+						case "Floor":
+							elevTmp.Floor = int(val2.(float64))
+						case "Behaviour":
+							elevTmp.CurrentBehaviour = Behaviour(val2.(float64))
+						}
+					case []interface{}:
+						for i, order := range val2.([]interface{}) {
+							if key == "OuterOrdersUp" {
+								elevTmp.OuterOrdersUp[i] = order.(bool)
+							} else if key == "OuterOrdersDown" {
+								elevTmp.OuterOrdersDown[i] = order.(bool)
+							} else {
+								elevTmp.InnerOrders[i] = order.(bool)
+							}
+						}
+					case bool:
+						elevTmp.EngineFail = (val2.(bool))
+					}
+				}
+				s.Elevators[elevIP] = elevTmp
+			}
+		case []interface{}:
+			for i, order := range val.([]interface{}) {
+				if key == "UnhandledOrdersUp" {
+					s.UnhandledOrdersUp[i] = order.(bool)
+				} else if key == "UnhandledOrdersDown" {
+					s.UnhandledOrdersDown[i] = order.(bool)
+				}
+
+			}
+		}
+	}
+	s.Print()
+	return s
 }
 
 func (sys *System) AddElevator(elevatorIP string) bool {
@@ -86,7 +128,6 @@ func (sys *System) RemoveElevator(elevatorIP string) bool {
 	return exists
 }
 
-
 func (sys *System) ClearOrder(elevatorIP string, floor int) {
 	elevator, inSystem := sys.Elevators[elevatorIP]
 	if inSystem {
@@ -100,12 +141,12 @@ func (sys *System) ClearOrder(elevatorIP string, floor int) {
 func (sys *System) UnassignOuterOrders(elevatorIP string) {
 	elevator, inSystem := sys.Elevators[elevatorIP]
 	if inSystem {
-		for floor := 0; floor < 4; floor++{
-			if elevator.OuterOrdersUp[floor]{
+		for floor := 0; floor < 4; floor++ {
+			if elevator.OuterOrdersUp[floor] {
 				sys.UnhandledOrdersUp[floor] = true
 				elevator.OuterOrdersUp[floor] = false
 			}
-			if elevator.OuterOrdersDown[floor]{
+			if elevator.OuterOrdersDown[floor] {
 				sys.UnhandledOrdersDown[floor] = true
 				elevator.OuterOrdersDown[floor] = false
 			}
@@ -130,11 +171,11 @@ func (sys *System) SetDirection(elevatorIP string, direction int) {
 	}
 }
 
-func (sys *System) Print(){
+func (sys *System) Print() {
 	fmt.Println()
-	for elevatorIP,elevator := range sys.Elevators{
-		fmt.Printf("%s: floor: %d, direction: %d,",elevatorIP,elevator.Floor,elevator.Direction)
-		switch elevator.CurrentBehaviour{
+	for elevatorIP, elevator := range sys.Elevators {
+		fmt.Printf("%s: floor: %d, direction: %d,", elevatorIP, elevator.Floor, elevator.Direction)
+		switch elevator.CurrentBehaviour {
 		case Idle:
 			fmt.Println(" Idle ")
 		case Moving:
@@ -144,13 +185,13 @@ func (sys *System) Print(){
 		case AwaitingCommand:
 			fmt.Println(" AwaitingCommand ")
 		}
-		fmt.Print("Inner orders: ",elevator.InnerOrders)
+		fmt.Print("Inner orders: ", elevator.InnerOrders)
 		fmt.Print("  Outer up: ", elevator.OuterOrdersUp)
 		fmt.Println("  Outer Down: ", elevator.OuterOrdersDown)
 		fmt.Println("--------------------------")
 	}
 	fmt.Println(sys.UnhandledOrdersUp)
-	fmt.Println(sys.UnhandledOrdersDown	)
+	fmt.Println(sys.UnhandledOrdersDown)
 	fmt.Println("--------------------------")
 
 }
