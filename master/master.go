@@ -52,7 +52,6 @@ func Run() {
 						ping := network.Message{nw.LocalIP, message.Sender, network.CreateID(cl.Master), cl.System, cl.JoinMaster}
 						send <- ping
 						if message.Sender != nw.LocalIP {
-							sys = scheduler.SystemFromBackup(message)
 							backup := sys.CreateBackup()
 							backup.Receiver = message.Sender
 							send <- backup
