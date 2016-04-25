@@ -1,6 +1,7 @@
 package master
 
 import (
+	"fmt"
 	"github.com/holwech/heislab/cl"
 	"github.com/holwech/heislab/network"
 	"github.com/holwech/heislab/scheduler"
@@ -40,9 +41,6 @@ func Run() {
 
 			case cl.DoorClosed:
 				sys.NotifyDoorClosed(message.Sender)
-
-			case cl.Connection:
-				sys.RemoveElevator(message.Sender)
 			case cl.Backup:
 				sys = scheduler.SystemFromBackup(message)
 			case cl.System:
@@ -51,11 +49,13 @@ func Run() {
 					if isActiveMaster {
 						ping := network.Message{nw.LocalIP, message.Sender, network.CreateID(cl.Master), cl.System, cl.JoinMaster}
 						send <- ping
+						if message.Sender != nw.LocalIP {
+							backup := sys.CreateBackup()
+							backup.Receiver = message.Sender
+							send <- backup
+						}
 					}
 					sys.AddElevator(message.Sender)
-					backup := sys.CreateBackup()
-					backup.Receiver = message.Sender
-					send <- backup
 				case cl.SetMaster:
 					isActiveMaster = true
 				case cl.EngineFail:
@@ -64,13 +64,17 @@ func Run() {
 					sys.NotifyEngineOk(message.Sender)
 				}
 			case cl.Connection:
-				ol.Done(message.ID)
+				switch message.Content {
+				case cl.OK:
+					ol.Done(message.ID)
+				}
 			}
 			sys.AssignOuterOrders()
 			sys.CommandConnectedElevators(slaveCommands)
 			sys.Print()
 		case command := <-slaveCommands:
 			if isActiveMaster {
+				fmt.Println("wt\n\n\n\n\nn\n\n\nf")
 				command.Sender = nw.LocalIP
 				command.ID = network.CreateID(cl.Master)
 				send <- command

@@ -113,9 +113,9 @@ func handleInput(sl *Slave, nw *network.Network, message network.Message, send c
 				sl.MasterID = nw.LocalIP
 			}
 			ol.Resend(send)
+		case cl.OK:
+			ol.Done(message.ID)
 		}
-	case cl.OK:
-		ol.Done(message.ID)
 	case cl.System:
 		switch message.Content {
 		case cl.JoinMaster:
