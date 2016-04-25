@@ -23,7 +23,6 @@ func pingAlive() {
 	checkError(err)
 	for {
 		_, err = connection.Write([]byte("alive"))
-		checkError(err)
 		time.Sleep(time.Second)
 	}
 }
