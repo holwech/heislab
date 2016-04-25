@@ -21,6 +21,64 @@ type Network struct {
 	SenderType, LocalIP, ReadPort, WritePort string
 }
 
+func (nw *Network) Init(readPort string, writePort string, senderType string) {
+	nw.Receive = make(chan Message)
+	nw.Send = make(chan Message)
+	nw.LocalIP = communication.GetLocalIP()
+	nw.ReadPort = readPort
+	nw.WritePort = writePort
+	nw.SenderType = senderType
+}
+
+func (nw *Network) Channels() (<-chan Message, chan<- Message) {
+	return nw.Receive, nw.Send
+}
+
+func InitNetwork(readPort string, writePort string, senderType string) (*Network, *MsgQueue) {
+	nw := new(Network)
+	nw.Init(readPort, writePort, senderType)
+	ol := new(MsgQueue)
+	commReceive, commSend := communication.Init(nw.ReadPort, nw.WritePort)
+	go receiver(nw, commReceive)
+	go sender(nw, commSend)
+	return nw, ol
+}
+
+func sender(nw *Network, commSend chan<- communication.CommData) {
+	for {
+		message := <-nw.Send
+		commMsg := *communication.ResolveMsg(nw.LocalIP, message.Receiver, message.ID, message.Response, message.Content)
+		fmt.Println(nw.SenderType + " sent message!!!!!!!")
+		communication.PrintMessage(commMsg)
+		commSend <- commMsg
+	}
+}
+
+func receiver(nw *Network, commReceive <-chan communication.CommData) {
+	for {
+		message := <-commReceive
+		convMsg := commToMsg(&message)
+		assertMsg(&convMsg)
+		if printAll {
+			PrintMessage(&convMsg)
+		}
+		if convMsg.Response != cl.Connection && convMsg.ID[0] == 'M' &&
+			(convMsg.Receiver == nw.LocalIP || convMsg.Receiver == cl.All) ||
+			(convMsg.Response == cl.Connection && convMsg.ID[0] == 'S') &&
+				nw.SenderType == cl.Slave {
+			nw.Receive <- convMsg
+			printInfo("Slave received message", &convMsg)
+		}
+		if ((convMsg.ID[0] == 'S') && (convMsg.Response != cl.Connection)) ||
+			((convMsg.ID[0] == 'M') && (convMsg.Response == cl.Connection) &&
+				(convMsg.Receiver == nw.LocalIP)) &&
+				nw.SenderType == cl.Master {
+			nw.Receive <- convMsg
+			printInfo("Master received message", &convMsg)
+		}
+	}
+}
+
 func printInfo(comment string, message *Message) {
 	if (info && message.Response != cl.Connection) || conn {
 		fmt.Println("NETW: " + comment)
@@ -55,68 +113,6 @@ func CreateID(senderType string) string {
 
 func LocalIP() string {
 	return communication.GetLocalIP()
-}
-
-func (nw *Network) Init(readPort string, writePort string, senderType string) {
-	nw.Receive = make(chan Message)
-	nw.Send = make(chan Message)
-	nw.LocalIP = communication.GetLocalIP()
-	nw.ReadPort = readPort
-	nw.WritePort = writePort
-	nw.SenderType = senderType
-}
-
-func (nw *Network) Channels() (<-chan Message, chan<- Message) {
-	return nw.Receive, nw.Send
-}
-
-func InitNetwork(readPort string, writePort string, senderType string) *Network {
-	nw := new(Network)
-	nw.Init(readPort, writePort, senderType)
-	Run(nw)
-	return nw
-}
-
-func Run(nw *Network) {
-	commReceive, commSend := communication.Init(nw.ReadPort, nw.WritePort)
-	go receiver(nw, commReceive)
-	go sender(nw, commSend)
-}
-
-func sender(nw *Network, commSend chan<- communication.CommData) {
-	for {
-		message := <-nw.Send
-		fmt.Println(message.Sender)
-		commMsg := *communication.ResolveMsg(nw.LocalIP, message.Receiver, message.ID, message.Response, message.Content)
-		fmt.Println(nw.SenderType + " sent message!!!!!!!")
-		communication.PrintMessage(commMsg)
-		commSend <- commMsg
-	}
-}
-
-func receiver(nw *Network, commReceive <-chan communication.CommData) {
-	for {
-		message := <-commReceive
-		convMsg := commToMsg(&message)
-		assertMsg(&convMsg)
-		if printAll {
-			PrintMessage(&convMsg)
-		}
-		if convMsg.Response != cl.Connection && convMsg.ID[0] == 'M' &&
-			(convMsg.Receiver == nw.LocalIP || convMsg.Receiver == cl.All) ||
-			(convMsg.Response == cl.Connection && convMsg.ID[0] == 'S') &&
-				nw.SenderType == cl.Slave {
-			nw.Receive <- convMsg
-			printInfo("Slave received message", &convMsg)
-		}
-		if ((convMsg.ID[0] == 'S') && (convMsg.Response != cl.Connection)) ||
-			((convMsg.ID[0] == 'M') && (convMsg.Response == cl.Connection) &&
-				(convMsg.Receiver == nw.LocalIP)) &&
-				nw.SenderType == cl.Master {
-			nw.Receive <- convMsg
-			printInfo("Master received message", &convMsg)
-		}
-	}
 }
 
 func assertMsg(message *Message) {

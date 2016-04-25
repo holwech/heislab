@@ -14,7 +14,7 @@ func InitMaster() {
 //Listen to inputs from slaves and send commands back
 //Will the behaviour and order list be the same on all masters running?
 func Run() {
-	nw := network.InitNetwork(cl.MReadPort, cl.MWritePort, cl.Master)
+	nw, ol := network.InitNetwork(cl.MReadPort, cl.MWritePort, cl.Master)
 	receive, send := nw.Channels()
 	sys := scheduler.NewSystem()
 	slaveCommands := make(chan network.Message, 100)
@@ -66,6 +66,8 @@ func Run() {
 				case cl.EngineOK:
 					sys.NotifyEngineOk(message.Sender)
 				}
+			case cl.Connection:
+				ol.Done(message.ID)
 			}
 			sys.AssignOuterOrders()
 			sys.CommandConnectedElevators(slaveCommands)
