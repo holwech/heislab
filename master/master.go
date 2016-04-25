@@ -42,9 +42,7 @@ func Run() {
 			case cl.DoorClosed:
 				sys.NotifyDoorClosed(message.Sender)
 			case cl.Backup:
-				if message.Sender != nw.LocalIP {
-					sys = scheduler.SystemFromBackup(message)
-				}
+				sys = scheduler.SystemFromBackup(message)
 			case cl.System:
 				switch message.Content {
 				case cl.Startup:
