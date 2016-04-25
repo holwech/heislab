@@ -13,11 +13,6 @@ import (
 const com_id = "2323" //Key for all elevators on the system
 const broadcast_addr = "255.255.255.255"
 
-type Communication struct {
-	CommReceive, CommSend, Receive, Send chan CommData
-	LocalIP, ReadPort, WritePort         string
-}
-
 type CommData struct {
 	Key, SenderIP, ReceiverIP, MsgID, Response string
 	Content                                    interface{}
@@ -28,12 +23,9 @@ type Timestamp struct {
 	SendTime                time.Time
 }
 
-func printError(errMsg string, err error) {
-	if err != nil {
-		fmt.Printf(errMsg + "\n")
-		fmt.Printf(err.Error() + "\n")
-		fmt.Println()
-	}
+type Communication struct {
+	CommReceive, CommSend, Receive, Send chan CommData
+	LocalIP, ReadPort, WritePort         string
 }
 
 func (cm *Communication) Init(readPort, writePort string) {
@@ -49,14 +41,10 @@ func (cm *Communication) Init(readPort, writePort string) {
 func Init(readPort string, writePort string) (<-chan CommData, chan<- CommData) {
 	cm := new(Communication)
 	cm.Init(readPort, writePort)
-	run(cm)
-	return cm.Receive, cm.Send
-}
-
-func run(cm *Communication)
 	go listen(cm.CommReceive, cm.ReadPort)
 	go broadcast(cm.CommSend, cm.LocalIP, cm.WritePort)
 	go msgSorter(cm)
+	return cm.Receive, cm.Send
 }
 
 func msgSorter(cm *Communication) {
@@ -184,6 +172,14 @@ func PrintTimestamp(data Timestamp) {
 	fmt.Printf("Message ID: %s\n", data.MsgID)
 	fmt.Printf("Time: %s\n", data.SendTime)
 	fmt.Printf("Status: %s\n", data.Status)
+}
+
+func printError(errMsg string, err error) {
+	if err != nil {
+		fmt.Printf(errMsg + "\n")
+		fmt.Printf(err.Error() + "\n")
+		fmt.Println()
+	}
 }
 
 func GetLocalIP() string {
