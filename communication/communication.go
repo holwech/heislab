@@ -15,17 +15,17 @@ const broadcast_addr = "255.255.255.255"
 
 type Communication struct {
 	CommReceive, CommSend, Receive, Send chan CommData
-	LocalIP, ReadPort, WritePort string
+	LocalIP, ReadPort, WritePort         string
 }
 
 type CommData struct {
 	Key, SenderIP, ReceiverIP, MsgID, Response string
-	Content interface{}
+	Content                                    interface{}
 }
 
 type Timestamp struct {
 	SenderIP, MsgID, Status string
-	SendTime time.Time
+	SendTime                time.Time
 }
 
 func printError(errMsg string, err error) {
@@ -38,7 +38,7 @@ func printError(errMsg string, err error) {
 
 func (cm *Communication) Init(readPort, writePort string) {
 	cm.CommReceive = make(chan CommData, 10)
-	cm.CommSend = make(chan CommData)
+	cm.CommSend = make(chan CommData, 10)
 	cm.Receive = make(chan CommData)
 	cm.Send = make(chan CommData)
 	cm.LocalIP = GetLocalIP()
@@ -53,7 +53,7 @@ func Init(readPort string, writePort string) (<-chan CommData, chan<- CommData) 
 	return cm.Receive, cm.Send
 }
 
-func run(cm *Communication) 
+func run(cm *Communication)
 	go listen(cm.CommReceive, cm.ReadPort)
 	go broadcast(cm.CommSend, cm.LocalIP, cm.WritePort)
 	go msgSorter(cm)
@@ -64,12 +64,13 @@ func msgSorter(cm *Communication) {
 	ticker := time.NewTicker(50 * time.Millisecond).C
 	for {
 		select {
-		case message := <- cm.CommReceive:
+		// When messages are received
+		case message := <-cm.CommReceive:
 			// If message is a receive-confirmation, push to status-channel
 			if message.Response == cl.Connection {
 				// Filters out status-messages that are not relevant for receiver
 				_, exists := messageLog[message.MsgID]
-				if message.ReceiverIP == cm.LocalIP && message.Content == cl.OK && exists{
+				if message.ReceiverIP == cm.LocalIP && message.Content == cl.OK && exists {
 					delete(messageLog, message.MsgID)
 					status := CommData{
 						Key:        com_id,
@@ -97,7 +98,7 @@ func msgSorter(cm *Communication) {
 				}
 			}
 		// When messages are sent, set time-stamp
-		case message := <- cm.Send:
+		case message := <-cm.Send:
 			timeSent := Timestamp{
 				SenderIP: message.SenderIP,
 				MsgID:    message.MsgID,
@@ -126,7 +127,6 @@ func msgSorter(cm *Communication) {
 		}
 	}
 }
-
 
 func broadcast(commSend chan CommData, localIP string, port string) {
 	fmt.Printf("COMM: Broadcasting message to: %s%s\n", broadcast_addr, port)

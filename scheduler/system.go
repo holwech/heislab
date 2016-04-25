@@ -1,7 +1,7 @@
 package scheduler
 
 import (
-"fmt"
+	"fmt"
 	"github.com/holwech/heislab/cl"
 	"github.com/holwech/heislab/network"
 )
@@ -31,7 +31,6 @@ type System struct {
 	Elevators           map[string]ElevatorState
 	UnhandledOrdersUp   [4]bool
 	UnhandledOrdersDown [4]bool
-	Commands            chan network.Message
 }
 
 func (elev *ElevatorState) hasOrderAtFloor(floor int) bool {
@@ -54,14 +53,13 @@ func (elev *ElevatorState) hasMoreOrders() bool {
 
 func NewSystem() *System {
 	var s System
-	s.Commands = make(chan network.Message, 100)
 	s.Elevators = make(map[string]ElevatorState)
 	return &s
 }
 
 func (sys *System) CreateBackup() network.Message {
 	backup := network.Message{network.LocalIP(), "",
-		network.CreateID(cl.Master), cl.Backup, sys}
+		network.CreateID(cl.Master), cl.Backup, *sys}
 	return backup
 }
 
@@ -133,27 +131,26 @@ func (sys *System) SetDirection(elevatorIP string, direction int) {
 }
 
 func (sys *System) Print(){
+	fmt.Println()
 	for elevatorIP,elevator := range sys.Elevators{
-		fmt.Printf("%s:, floor: %d, direction: %d,",elevatorIP,elevator.Floor,elevator.Direction)
+		fmt.Printf("%s: floor: %d, direction: %d,",elevatorIP,elevator.Floor,elevator.Direction)
 		switch elevator.CurrentBehaviour{
 		case Idle:
-			fmt.Print(" Idle, ")
+			fmt.Println(" Idle ")
 		case Moving:
-			fmt.Printf(" Moving, ")
+			fmt.Println(" Moving ")
 		case DoorOpen:
-			fmt.Printf(" DoorOpen, ")
+			fmt.Println(" DoorOpen ")
 		case AwaitingCommand:
-			fmt.Printf(" AwaitingCommand, ")
+			fmt.Println(" AwaitingCommand ")
 		}
-		fmt.Print(elevator.InnerOrders)
-		fmt.Print(elevator.OuterOrdersUp)
-		fmt.Print(elevator.OuterOrdersDown)
-		fmt.Println("")
+		fmt.Print("Inner orders: ",elevator.InnerOrders)
+		fmt.Print("  Outer up: ", elevator.OuterOrdersUp)
+		fmt.Println("  Outer Down: ", elevator.OuterOrdersDown)
 		fmt.Println("--------------------------")
 	}
 	fmt.Println(sys.UnhandledOrdersUp)
 	fmt.Println(sys.UnhandledOrdersDown	)
-	fmt.Println("")
 	fmt.Println("--------------------------")
 
 }
