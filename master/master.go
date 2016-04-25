@@ -1,11 +1,9 @@
 package master
 
 import (
-	"fmt"
 	"github.com/holwech/heislab/cl"
 	"github.com/holwech/heislab/network"
 	"github.com/holwech/heislab/scheduler"
-	"time"
 )
 
 func InitMaster() {
@@ -18,7 +16,7 @@ func Run() {
 	nw := network.InitNetwork(cl.MReadPort, cl.MWritePort, cl.Master)
 	receive, send := nw.Channels()
 	sys := scheduler.NewSystem()
-	slaveCommands := make(chan network.Message,100)
+	slaveCommands := make(chan network.Message, 100)
 	isActiveMaster := false
 
 	for {
@@ -28,17 +26,17 @@ func Run() {
 			case cl.InnerOrder:
 				content := message.Content.(map[string]interface{})
 				floor := content["Floor"].(int)
-				sys.NotifyInnerOrder(message.Sender, floor,slaveCommands)
+				sys.NotifyInnerOrder(message.Sender, floor, slaveCommands)
 
 			case cl.OuterOrder:
 				content := message.Content.(map[string]interface{})
 				floor := content["Floor"].(int)
 				direction := content["Direction"].(int)
-				sys.NotifyOuterOrder(floor, direction,slaveCommands)
+				sys.NotifyOuterOrder(floor, direction, slaveCommands)
 
 			case cl.Floor:
 				floor := message.Content.(int)
-				sys.NotifyFloor(message.Sender, floor,slaveCommands)
+				sys.NotifyFloor(message.Sender, floor, slaveCommands)
 
 			case cl.DoorClosed:
 				sys.NotifyDoorClosed(message.Sender)
@@ -63,17 +61,14 @@ func Run() {
 				}
 			}
 			sys.AssignOuterOrders()
-			sys.CommandConnectedElevators()
+			sys.CommandConnectedElevators(slaveCommands)
 			sys.Print()
-			fmt.Println(len(slaveCommands))
 		case command := <-slaveCommands:
 			if isActiveMaster {
 				command.Sender = nw.LocalIP
 				command.ID = network.CreateID(cl.Master)
 				send <- command
 			}
-		case <-ticker.C:
-			fmt.Println("master_tick")
 		}
 
 	}
