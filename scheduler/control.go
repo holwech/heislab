@@ -7,39 +7,39 @@ import (
 
 const MAXCOST int = 100000
 
-func (sys *System) NotifyInnerOrder(elevatorIP string, floor int) {
+func (sys *System) NotifyInnerOrder(elevatorIP string, floor int, outgoingCommands chan network.Message) {
 	elevator, inSystem := sys.Elevators[elevatorIP]
 
 	if inSystem {
 		elevator.InnerOrders[floor] = true
 		sys.Elevators[elevatorIP] = elevator
 		cmdLight := network.Message{"", elevatorIP, "", cl.LightOnInner, floor}
-		sys.Commands <- cmdLight
+		outgoingCommands <- cmdLight
 		if elevator.CurrentBehaviour == Idle{
 			sys.SetBehaviour(elevatorIP,AwaitingCommand)
 		}
 	}
 }
 
-func (sys *System) NotifyOuterOrder(floor, direction int) {
+func (sys *System) NotifyOuterOrder(floor, direction int, outgoingCommands chan network.Message) {
 	if direction == -1 {
 		sys.UnhandledOrdersDown[floor] = true
 		cmdLight := network.Message{"", cl.All, "", cl.LightOnOuterDown, floor}
-		sys.Commands <- cmdLight
+		outgoingCommands <- cmdLight
 	} else if direction == 1 {
 		sys.UnhandledOrdersUp[floor] = true
 		cmdLight := network.Message{"", cl.All, "", cl.LightOnOuterUp, floor}
-		sys.Commands <- cmdLight
+		outgoingCommands <- cmdLight
 	}
 }
 
-func (sys *System) NotifyFloor(elevatorIP string, floor int) {
+func (sys *System) NotifyFloor(elevatorIP string, floor int, outgoingCommands chan network.Message) {
 	elevator, inSystem := sys.Elevators[elevatorIP]
 	if inSystem && floor != -1 {
 		elevator.Floor = floor
 		sys.Elevators[elevatorIP] = elevator
 		if elevator.hasOrderAtFloor(floor){
-			sys.sendStopCommands(elevatorIP)
+			sys.sendStopCommands(elevatorIP,outgoingCommands)
 			sys.ClearOrder(elevatorIP, floor)
 			sys.SetBehaviour(elevatorIP, DoorOpen)
 		}
@@ -137,20 +137,20 @@ func (sys *System) AssignOuterOrders() {
 	}
 }
 
-func (sys *System) CommandConnectedElevators() {
+func (sys *System) CommandConnectedElevators(outgoingCommands chan network.Message) {
 	for elevIP, elev := range sys.Elevators {
 		switch elev.CurrentBehaviour {
 		case Idle:
 		case Moving:
 		case DoorOpen:
 			if elev.hasOrderAtFloor(elev.Floor){
-				sys.sendStopCommands(elevIP)
+				sys.sendStopCommands(elevIP,outgoingCommands)
 				sys.ClearOrder(elevIP, elev.Floor)
 				sys.SetBehaviour(elevIP, DoorOpen)
 			}
 		case AwaitingCommand:
 			if elev.hasOrderAtFloor(elev.Floor){
-				sys.sendStopCommands(elevIP)
+				sys.sendStopCommands(elevIP,outgoingCommands)
 				sys.ClearOrder(elevIP, elev.Floor)
 				sys.SetBehaviour(elevIP, DoorOpen)
 			}else{
@@ -175,7 +175,7 @@ func (sys *System) CommandConnectedElevators() {
 						}
 					}
 				}
-				sys.Commands <- command
+				outgoingCommands <- command
 				sys.SetBehaviour(elevIP, Moving)	
 			}
 		}
@@ -223,21 +223,21 @@ func (elev *ElevatorState) costOfOuterOrder(floor, direction int) int {
 	}
 }
 
-func (sys *System) sendStopCommands(elevIP string) {
+func (sys *System) sendStopCommands(elevIP string,outgoingCommands chan network.Message) {
 	elevator := sys.Elevators[elevIP]
 	var command network.Message
 
 	command.Receiver = elevIP
 	command.Response = cl.Stop
-	sys.Commands <- command
+	outgoingCommands <- command
 	if elevator.OuterOrdersDown[elevator.Floor]{
-		sys.Commands <- network.Message{"",cl.All,"",cl.LightOffOuterDown,elevator.Floor}
+		outgoingCommands <- network.Message{"",cl.All,"",cl.LightOffOuterDown,elevator.Floor}
 	}
 	if elevator.OuterOrdersUp[elevator.Floor]{
-		sys.Commands <- network.Message{"",cl.All,"",cl.LightOffOuterUp,elevator.Floor}
+		outgoingCommands <- network.Message{"",cl.All,"",cl.LightOffOuterUp,elevator.Floor}
 	}
 	if elevator.InnerOrders[elevator.Floor]{
-		sys.Commands <- network.Message{"",elevIP,"",cl.LightOffInner,elevator.Floor}
+		outgoingCommands <- network.Message{"",elevIP,"",cl.LightOffInner,elevator.Floor}
 	}
 }
 

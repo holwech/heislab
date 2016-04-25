@@ -11,7 +11,7 @@ const m = true
 const s = true
 
 func TestSend(t *testing.T) {
-	nw := InitNetwork(cl.SReadPort, cl.SWritePort, cl.Slave)
+	nw, _ := InitNetwork(cl.SReadPort, cl.SWritePort, cl.Slave)
 	receive, send := nw.Channels()
 	go sender(send)
 	time.Sleep(time.Second)
@@ -20,7 +20,7 @@ func TestSend(t *testing.T) {
 }
 
 func TestListen(t *testing.T) {
-	nw := InitNetwork(cl.MReadPort, cl.MWritePort, cl.Master)
+	nw, _ := InitNetwork(cl.MReadPort, cl.MWritePort, cl.Master)
 	receive, _ := nw.Channels()
 	time.Sleep(time.Second)
 	go receiver(receive)

@@ -1,11 +1,11 @@
 package backup
 
 import (
+	"fmt"
 	"net"
 	"os"
-	"time"
-	"fmt"
 	"os/exec"
+	"time"
 )
 
 const port = ":25000"
@@ -16,15 +16,14 @@ func checkError(err error) {
 	}
 }
 
-func pingAlive(){
-	broadcastAddress, err := net.ResolveUDPAddr("udp", "127.0.0.1" + port)
+func pingAlive() {
+	broadcastAddress, err := net.ResolveUDPAddr("udp", "127.0.0.1"+port)
 	checkError(err)
 	connection, err := net.DialUDP("udp", nil, broadcastAddress)
 	checkError(err)
 	for {
 		_, err = connection.Write([]byte("alive"))
 		checkError(err)
-		fmt.Println("Alive")
 		time.Sleep(time.Second)
 	}
 }
@@ -33,12 +32,12 @@ func listen() {
 	timeout := time.NewTimer(3 * time.Second)
 	input := make(chan string)
 	quit := false
-	localAddress, err := net.ResolveUDPAddr("udp", "localhost" + port)
+	localAddress, err := net.ResolveUDPAddr("udp", "localhost"+port)
 	checkError(err)
 	connection, err := net.ListenUDP("udp", localAddress)
 	checkError(err)
 	defer connection.Close()
-	fmt.Println("Listening")
+	fmt.Println("BACKUP")
 	go func(input chan string, connection *net.UDPConn) {
 		for {
 			buffer := make([]byte, 4096)
@@ -47,14 +46,13 @@ func listen() {
 			input <- string(buffer)
 		}
 	}(input, connection)
-	for{
-		select{
+	for {
+		select {
 		case <-timeout.C:
 			fmt.Println("Crash detected, starting new process")
 			quit = true
-		case message := <- input:
+		case message := <-input:
 			if message == "alive" {
-				fmt.Println("Heard alive")
 				timeout.Reset(2 * time.Second)
 			}
 		}
@@ -63,7 +61,6 @@ func listen() {
 		}
 	}
 }
-
 
 func Run(flag string) {
 	if flag == "-b" {
