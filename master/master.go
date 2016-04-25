@@ -41,9 +41,6 @@ func Run() {
 
 			case cl.DoorClosed:
 				sys.NotifyDoorClosed(message.Sender)
-
-			case cl.Connection:
-				sys.RemoveElevator(message.Sender)
 			case cl.Backup:
 				if message.Sender != nw.LocalIP {
 					sys = scheduler.SystemFromBackup(message)
@@ -54,9 +51,12 @@ func Run() {
 					if isActiveMaster {
 						ping := network.Message{nw.LocalIP, message.Sender, network.CreateID(cl.Master), cl.System, cl.JoinMaster}
 						send <- ping
-						backup := sys.CreateBackup()
-						backup.Receiver = message.Sender
-						send <- backup
+						if message.Sender != nw.LocalIP {
+							sys = scheduler.SystemFromBackup(message)
+							backup := sys.CreateBackup()
+							backup.Receiver = message.Sender
+							send <- backup
+						}
 					}
 					sys.AddElevator(message.Sender)
 				case cl.SetMaster:
@@ -67,7 +67,10 @@ func Run() {
 					sys.NotifyEngineOk(message.Sender)
 				}
 			case cl.Connection:
-				ol.Done(message.ID)
+				switch message.Content {
+				case cl.OK:
+					ol.Done(message.ID)
+				}
 			}
 			sys.AssignOuterOrders()
 			sys.CommandConnectedElevators(slaveCommands)
