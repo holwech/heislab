@@ -42,8 +42,6 @@ func Run() {
 				sys.NotifyDoorClosed(message.Sender)
 
 			case cl.Connection:
-				if message.Response == 
-				///TODO
 				sys.RemoveElevator(message.Sender)
 			case cl.System:
 				switch message.Content {
@@ -53,6 +51,9 @@ func Run() {
 						send <- ping
 					}
 					sys.AddElevator(message.Sender)
+					msg := sys.CreateBackup()
+					msg.Receiver = message.Sender
+					send <- msg
 				case cl.SetMaster:
 					isActiveMaster = true
 				case cl.EngineFail:
