@@ -43,6 +43,8 @@ func Run() {
 
 			case cl.Connection:
 				sys.RemoveElevator(message.Sender)
+			case cl.Backup:
+				sys = scheduler.SystemFromBackup(message)
 			case cl.System:
 				switch message.Content {
 				case cl.Startup:
@@ -51,9 +53,9 @@ func Run() {
 						send <- ping
 					}
 					sys.AddElevator(message.Sender)
-					msg := sys.CreateBackup()
-					msg.Receiver = message.Sender
-					send <- msg
+					backup := sys.CreateBackup()
+					backup.Receiver = message.Sender
+					send <- backup
 				case cl.SetMaster:
 					isActiveMaster = true
 				case cl.EngineFail:
