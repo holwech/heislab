@@ -37,7 +37,11 @@ func (ol *MsgQueue) Done(id string) {
 }
 
 func (ol *MsgQueue) remove(i int) {
-	copy(ol.list[i:], ol.list[i + 1:])
-	ol.list[len(ol.list) - 1] = nil
-	ol.list = ol.list[:len(ol.list) - 1]
+	if len(ol.list) == 1 {
+		ol.list[0] = nil
+	} else {
+		copy(ol.list[i:], ol.list[i + 1:])
+		ol.list[len(ol.list) - 1] = nil
+		ol.list = ol.list[:len(ol.list) - 1]
+	}
 }
