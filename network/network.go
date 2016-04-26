@@ -34,24 +34,20 @@ func (nw *Network) Channels() (<-chan Message, chan<- Message) {
 	return nw.Receive, nw.Send
 }
 
-func InitNetwork(readPort string, writePort string, senderType string) (*Network, *MsgQueue) {
+func InitNetwork(readPort string, writePort string, senderType string) *Network {
 	nw := new(Network)
 	nw.Init(readPort, writePort, senderType)
 	ol := new(MsgQueue)
 	commReceive, commSend := communication.Init(nw.ReadPort, nw.WritePort)
 	go receiver(nw, commReceive)
 	go sender(nw, commSend)
-	return nw, ol
+	return nw
 }
 
 func sender(nw *Network, commSend chan<- communication.CommData) {
 	for {
 		message := <-nw.Send
 		commMsg := *communication.ResolveMsg(nw.LocalIP, message.Receiver, message.ID, message.Response, message.Content)
-		if commMsg.Response != cl.Ping {
-			fmt.Println("=== " + nw.SenderType + " sent message ===")
-			communication.PrintMessage(commMsg)
-		}
 		commSend <- commMsg
 	}
 }

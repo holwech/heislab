@@ -15,9 +15,9 @@ func InitMaster() {
 
 func Run() {
 	fmt.Println("Starting master")
-	nwSlave, _ := network.InitNetwork(cl.MReadPort, cl.MWritePort, cl.Master)
+	nwSlave := network.InitNetwork(cl.MReadPort, cl.MWritePort, cl.Master)
 	recvFromSlave, sendToSlave := nwSlave.Channels()
-	nwMaster, _ := network.InitNetwork(cl.MtoMPort, cl.MtoMPort, cl.Master)
+	nwMaster := network.InitNetwork(cl.MtoMPort, cl.MtoMPort, cl.Master)
 	recvFromMaster, sendToMaster := nwMaster.Channels()
 
 	sys := scheduler.NewSystem()
