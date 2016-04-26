@@ -2,7 +2,6 @@ package network
 
 import (
 	"errors"
-	"fmt"
 )
 
 type MsgQueue struct {
@@ -32,10 +31,9 @@ func (ol *MsgQueue) Add(order *Message) {
 }
 
 func (ol *MsgQueue) Done(id string) {
-	for _, val := range ol.list {
+	for i, val := range ol.list {
 		if val.ID == id {
-			//ol.remove(i)
-			fmt.Println("LOLOLOLOL", len(ol.list))
+			ol.remove(i)
 			break
 		}
 	}
@@ -43,7 +41,7 @@ func (ol *MsgQueue) Done(id string) {
 
 func (ol *MsgQueue) remove(i int) {
 	if len(ol.list) == 1 {
-		ol.list[0] = nil
+		ol.list = nil
 	} else {
 		copy(ol.list[i:], ol.list[i+1:])
 		ol.list[len(ol.list)-1] = nil
