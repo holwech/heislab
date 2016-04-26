@@ -40,7 +40,6 @@ var EngineOK string = "ENGINEOK"
 // Commands from master
 var JoinMaster string = "JOIN"
 var Backup string = "BACKUP"
-var Merge string = "MERGE"
 var All string = "ALL"
 
 // === Communication package

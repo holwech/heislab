@@ -94,27 +94,17 @@ func Run() {
 			switch message.Response {
 			case cl.Ping:
 				_, alreadyConnected := connectedElevators[message.Sender]
-				if isActiveMaster && !alreadyConnected {
+				if !alreadyConnected {
 					merge := sys.CreateBackup()
 					merge.Receiver = message.Sender
-					merge.Response = cl.Merge
 					sendToMaster <- merge
 				}
 				connectedElevators[message.Sender] = true
-			case cl.Merge:
+			case cl.Backup:
 				sys.Print()
 				receivedSys := scheduler.SystemFromBackup(message)
 				sys = scheduler.MergeSystems(sys, receivedSys)
 				fmt.Println("merge")
-				backup := sys.CreateBackup()
-				backup.Receiver = cl.All
-				sendToMaster <- backup
-				sys.Print()
-			case cl.Backup:
-				sys.Print()
-				fmt.Println("backup")
-				sys := scheduler.SystemFromBackup(message)
-				sys.Print()
 			}
 		}
 	}
