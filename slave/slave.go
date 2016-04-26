@@ -112,9 +112,6 @@ func handleInput(sl *Slave, nw *network.Network, message network.Message, send c
 				sendMsg(nw.LocalIP, "", cl.System, cl.SetMaster, send, ol)
 				sl.MasterID = nw.LocalIP
 			}
-			ol.Resend(send)
-		case cl.OK:
-			ol.Done(message.ID)
 		}
 	case cl.System:
 		switch message.Content {
@@ -136,5 +133,4 @@ func sendMsg(masterID string, id string, response string, content interface{}, s
 		Content:  content,
 	}
 	send <- message
-	ol.Add(&message)
 }
