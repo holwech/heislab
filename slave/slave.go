@@ -33,7 +33,7 @@ func initSlave() *Slave {
 
 func Run() {
 	innerChan, outerChan, floorChan := driver.InitElevator()
-	nw, ol := network.InitNetwork(cl.SReadPort, cl.SWritePort, cl.Slave)
+	nw, _ := network.InitNetwork(cl.SReadPort, cl.SWritePort, cl.Slave)
 	master.InitMaster()
 	sl := initSlave()
 	receive, send := nw.Channels()
@@ -43,27 +43,27 @@ func Run() {
 	for {
 		select {
 		case innerOrder := <-innerChan:
-			sendMsg(sl.MasterID, "", cl.InnerOrder, innerOrder, send, ol)
+			network.Send(sl.MasterID, cl.Slave, cl.InnerOrder, innerOrder, send)
 		case outerOrder := <-outerChan:
-			sendMsg(sl.MasterID, "", cl.OuterOrder, outerOrder, send, ol)
+			network.Send(sl.MasterID, cl.Slave, cl.OuterOrder, outerOrder, send)
 		case newFloor := <-floorChan:
 			fmt.Printf("Floor: %d\n", newFloor)
-			sendMsg(sl.MasterID, "", cl.Floor, newFloor, send, ol)
+			network.Send(sl.MasterID, cl.Slave, cl.Floor, newFloor, send)
 			if newFloor != -1 {
 				sl.MotorTimer.Reset(6 * time.Second)
 				if sl.EngineState == cl.EngineFail {
 					sl.EngineState = cl.EngineOK
-					sendMsg(sl.MasterID, "", cl.System, cl.EngineOK, send, ol)
+					network.Send(sl.MasterID, cl.Slave, cl.System, cl.EngineOK, send)
 				}
 			}
 		case <-sl.DoorTimer.C:
 			driver.SetDoorLamp(0)
-			sendMsg(sl.MasterID, "", cl.DoorClosed, "", send, ol)
+			network.Send(sl.MasterID, cl.Slave, cl.DoorClosed, cl.Slave, send)
 		case message := <-receive:
-			handleInput(sl, nw, message, send, ol)
+			handleInput(sl, nw, message, send)
 		case <-sl.MotorTimer.C:
 			sl.EngineState = cl.EngineFail
-			sendMsg(sl.MasterID, "", cl.System, cl.EngineFail, send, ol)
+			network.Send(sl.MasterID, cl.Slave, cl.System, cl.EngineFail, send)
 		case <-ticker.C:
 			fmt.Println("slave_tick")
 
@@ -71,7 +71,7 @@ func Run() {
 	}
 }
 
-func handleInput(sl *Slave, nw *network.Network, message network.Message, send chan<- network.Message, ol *network.MsgQueue) {
+func handleInput(sl *Slave, nw *network.Network, message network.Message, send chan<- network.Message) {
 	switch message.Response {
 	case cl.Up:
 		driver.SetMotorDirection(1)
@@ -102,17 +102,4 @@ func handleInput(sl *Slave, nw *network.Network, message network.Message, send c
 			network.PrintMessage(&message)
 		}
 	}
-}
-
-func sendMsg(masterID string, id string, response string, content interface{}, send chan<- network.Message, ol *network.MsgQueue) {
-	if id == "" {
-		id = network.CreateID(cl.Slave)
-	}
-	message := network.Message{
-		Receiver: masterID,
-		ID:       id,
-		Response: response,
-		Content:  content,
-	}
-	send <- message
 }
