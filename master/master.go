@@ -6,21 +6,27 @@ import (
 	"github.com/holwech/heislab/scheduler"
 )
 
+//REmove pls
 func InitMaster() {
 	go Run()
 }
 
-//Listen to inputs from slaves and send commands back
-//Will the behaviour and order list be the same on all masters running?
 func Run() {
-	nw, ol := network.InitNetwork(cl.MReadPort, cl.MWritePort, cl.Master)
-	receive, send := nw.Channels()
+	nwSlave, _ := network.InitNetwork(cl.MReadPort, cl.MWritePort, cl.Master)
+	recvFromSlave, sendToSlave := nwSlave.Channels()
+	nwMaster, _ := network.InitNetwork(cl.MtoMReadPort, cl.MtoMWritePort, cl.Master)
+	recvFromMaster, sendToMaster := nwMaster.Channels()
+
 	sys := scheduler.NewSystem()
 	slaveCommands := make(chan network.Message, 100)
 	isActiveMaster := false
+
+	pinger := time.NewTicker(100 * time.Millisecond)
+	checkConnected := time.NewTicker(300 * time.Millisecond)
+	connectedElevators = make(map[string]bool)
 	for {
 		select {
-		case message := <-receive:
+		case message := <-recvFromSlave:
 			switch message.Response {
 			case cl.InnerOrder:
 				content := message.Content.(map[string]interface{})
@@ -39,38 +45,12 @@ func Run() {
 
 			case cl.DoorClosed:
 				sys.NotifyDoorClosed(message.Sender)
-			case cl.Backup:
-				sys = scheduler.SystemFromBackup(message)
 			case cl.System:
 				switch message.Content {
-				case cl.Startup:
-					if isActiveMaster {
-						ping := network.Message{nw.LocalIP, message.Sender, network.CreateID(cl.Master), cl.System, cl.JoinMaster}
-						send <- ping
-						if message.Sender != nw.LocalIP {
-							backup := sys.CreateBackup()
-							backup.Receiver = message.Sender
-							send <- backup
-						}
-					}
-					sys.AddElevator(message.Sender)
-				case cl.SetMaster:
-					isActiveMaster = true
 				case cl.EngineFail:
 					sys.NotifyEngineFail(message.Sender)
 				case cl.EngineOK:
 					sys.NotifyEngineOk(message.Sender)
-				case cl.Connection:
-					switch message.Content {
-					case cl.OK:
-						ol.Done(message.ID)
-					case cl.Failed:
-						if isActiveMaster {
-							sys.NotifyDisconnectionActive(message.Sender)
-						} else {
-							sys.NotifyDisconnectionInactive(message.Sender)
-						}
-					}
 				}
 			}
 			sys.AssignOuterOrders()
@@ -78,11 +58,53 @@ func Run() {
 			sys.Print()
 		case command := <-slaveCommands:
 			if isActiveMaster {
-				command.Sender = nw.LocalIP
+				command.Sender = nwSlave.LocalIP
 				command.ID = network.CreateID(cl.Master)
-				send <- command
+				sendToSlave <- command
+			}
+		case <-pinger.C:
+			ping := network.Message{nwMaster.LocalIP, message.Sender, network.CreateID(cl.Master), cl.Ping, ""}
+			sendToMaster <- ping
+		case <-checkConnected.C:
+			masterIP := nw.LocalIP
+			for elevIP := range connectedElevators {
+				if checkConnected[elevIP] == false {
+					if isActiveMaster {
+						sys.NotifyDisconnectionActive(elevIP)
+					} else {
+						sys.NotifyDisconnectionInactive(elevIP)
+					}
+				} else {
+					//Select master as the connected elevator with lowest IP
+					if elevIP < masterIP {
+						masterIP = elevIP
+					}
+				}
+			}
+			if masterIP == nw.LocalIP {
+				isActiveMaster = true
+			} else {
+				isActiveMaster = false
+			}
+			for elevIP := range connectedElevators {
+				checkConnected[elevIP] = false
+			}
+		case message := <-recvFromMaster:
+			switch message.Response {
+			case cl.Ping:
+				_, elevatorAdded := connectedElevators[message.Sender]
+				if isActiveMaster && !elevatorAdded {
+					join := network.Message{nwSlave.LocalIP, message.Sender, network.CreateID(cl.Master), cl.System, cl.JoinMaster}
+					sendToSlave <- join
+					backup := sys.CreateBackup()
+					backup.Receiver = message.Sender
+					sendToMaster <- backup
+					sys.AddElevator(message.Sender)
+				}
+				connectedElevators[message.Sender] = true
+			case cl.Backup:
+				sys = scheduler.SystemFromBackup(message)
 			}
 		}
-
 	}
 }

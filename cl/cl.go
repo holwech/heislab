@@ -58,3 +58,6 @@ var SWritePort string = ":25010"
 
 var MReadPort string = ":25010"
 var MWritePort string = ":25101"
+
+var MtoMReadPort string = ":26010"
+var MtoMWritePort string = ":26101"
