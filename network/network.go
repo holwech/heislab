@@ -135,6 +135,16 @@ func assertMsg(message *Message) {
 	}
 }
 
+func Send(masterID string, id string, response string, content interface{}, send chan<- Message) {
+	message := Message{
+		Receiver: masterID,
+		ID:       id,
+		Response: response,
+		Content:  content,
+	}
+	send <- message
+}
+
 func commToMsg(message *communication.CommData) Message {
 	newMsg := Message{
 		Sender:   message.SenderIP,
