@@ -55,6 +55,22 @@ func NewSystem() *System {
 	return &s
 }
 
+func MergeSystems(sys1 *System, sys2 *System) *System {
+	var s System
+	s.Elevators = make(map[string]ElevatorState)
+	for elevIP, elev := range sys1.Elevators {
+		s.Elevators[elevIP] = elev
+	}
+	for elevIP, elev := range sys2.Elevators {
+		s.Elevators[elevIP] = elev
+	}
+	for floor := 0; floor < 4; floor++ {
+		s.UnhandledOrdersDown[floor] = sys1.UnhandledOrdersDown[floor] || sys2.UnhandledOrdersDown[floor]
+		s.UnhandledOrdersUp[floor] = sys1.UnhandledOrdersUp[floor] || sys2.UnhandledOrdersUp[floor]
+	}
+	return &s
+}
+
 func (sys *System) CreateBackup() network.Message {
 	backup := network.Message{network.LocalIP(), "",
 		network.CreateID(cl.Master), cl.Backup, *sys}
