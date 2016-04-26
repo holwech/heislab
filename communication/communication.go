@@ -87,14 +87,16 @@ func msgSorter(cm *Communication) {
 			}
 		// When messages are sent, set time-stamp
 		case message := <-cm.Send:
-			timeSent := Timestamp{
-				SenderIP: message.SenderIP,
-				MsgID:    message.MsgID,
-				SendTime: time.Now(),
-				Status:   cl.Sent,
+			if message.ReceiverIP != cl.All {
+				timeSent := Timestamp{
+					SenderIP: message.SenderIP,
+					MsgID:		message.MsgID,
+					SendTime: time.Now(),
+					Status:	 cl.Sent,
+				}
+				messageLog[message.MsgID] = timeSent
 			}
 			cm.CommSend <- message
-			messageLog[message.MsgID] = timeSent
 		case <-ticker:
 			currentTime := time.Now()
 			for msgID, metadata := range messageLog {
