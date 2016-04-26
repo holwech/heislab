@@ -9,7 +9,7 @@ import (
 
 const info = false
 const conn = false
-const printAll = false
+const printAll = true
 
 type Message struct {
 	Sender, Receiver, ID, Response string
@@ -48,8 +48,10 @@ func sender(nw *Network, commSend chan<- communication.CommData) {
 	for {
 		message := <-nw.Send
 		commMsg := *communication.ResolveMsg(nw.LocalIP, message.Receiver, message.ID, message.Response, message.Content)
-		fmt.Println(nw.SenderType + " sent message!!!!!!!")
-		communication.PrintMessage(commMsg)
+		if commMsg.Response != cl.Ping {
+			fmt.Println("=== " + nw.SenderType + " sent message ===")
+			communication.PrintMessage(commMsg)
+		}
 		commSend <- commMsg
 	}
 }
@@ -57,27 +59,25 @@ func sender(nw *Network, commSend chan<- communication.CommData) {
 func receiver(nw *Network, commReceive <-chan communication.CommData) {
 	for {
 		message := <-commReceive
-		if message.Response != cl.Ping {
-			convMsg := commToMsg(&message)
-			assertMsg(&convMsg)
-			if printAll {
-				PrintMessage(&convMsg)
+		convMsg := commToMsg(&message)
+		assertMsg(&convMsg)
+		if printAll {
+			PrintMessage(&convMsg)
+		}
+		if nw.SenderType == cl.Slave {
+			if convMsg.Response != cl.Connection && convMsg.ID[0] == 'M' &&
+				(convMsg.Receiver == nw.LocalIP || convMsg.Receiver == cl.All) ||
+				(convMsg.Response == cl.Connection && convMsg.ID[0] == 'S') {
+				nw.Receive <- convMsg
+				printInfo("Slave received message", &convMsg)
 			}
-			if nw.SenderType == cl.Slave {
-				if convMsg.Response != cl.Connection && convMsg.ID[0] == 'M' &&
-					(convMsg.Receiver == nw.LocalIP || convMsg.Receiver == cl.All) ||
-					(convMsg.Response == cl.Connection && convMsg.ID[0] == 'S') {
-					nw.Receive <- convMsg
-					printInfo("Slave received message", &convMsg)
-				}
-			}
-			if nw.SenderType == cl.Master {
-				if ((convMsg.ID[0] == 'S') && (convMsg.Response != cl.Connection)) ||
-					((convMsg.ID[0] == 'M') && (convMsg.Response != cl.Connection)) ||
-					((convMsg.ID[0] == 'M') && (convMsg.Response == cl.Connection) && (convMsg.Receiver == nw.LocalIP)) {
-					nw.Receive <- convMsg
-					printInfo("Master received message", &convMsg)
-				}
+		}
+		if nw.SenderType == cl.Master {
+			if ((convMsg.ID[0] == 'S') && (convMsg.Response != cl.Connection)) ||
+				((convMsg.ID[0] == 'M') && (convMsg.Response != cl.Connection)) ||
+				((convMsg.ID[0] == 'M') && (convMsg.Response == cl.Connection) && (convMsg.Receiver == nw.LocalIP)) {
+				nw.Receive <- convMsg
+				printInfo("Master received message", &convMsg)
 			}
 		}
 	}

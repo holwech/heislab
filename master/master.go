@@ -1,6 +1,7 @@
 package master
 
 import (
+	"fmt"
 	"github.com/holwech/heislab/cl"
 	"github.com/holwech/heislab/network"
 	"github.com/holwech/heislab/scheduler"
@@ -13,6 +14,7 @@ func InitMaster() {
 }
 
 func Run() {
+	fmt.Println("Starting master")
 	nwSlave, _ := network.InitNetwork(cl.MReadPort, cl.MWritePort, cl.Master)
 	recvFromSlave, sendToSlave := nwSlave.Channels()
 	nwMaster, _ := network.InitNetwork(cl.MtoMReadPort, cl.MtoMWritePort, cl.Master)
@@ -25,6 +27,8 @@ func Run() {
 	pinger := time.NewTicker(100 * time.Millisecond)
 	checkConnected := time.NewTicker(300 * time.Millisecond)
 	connectedElevators := make(map[string]bool)
+	connectedElevators[nwMaster.LocalIP] = true
+	sys.AddElevator(nwMaster.LocalIP)
 	for {
 		select {
 		case message := <-recvFromSlave:
@@ -86,6 +90,7 @@ func Run() {
 			for elevIP := range connectedElevators {
 				connectedElevators[elevIP] = false
 			}
+			connectedElevators[nwMaster.LocalIP] = true
 		case message := <-recvFromMaster:
 			switch message.Response {
 			case cl.Ping:
@@ -100,6 +105,7 @@ func Run() {
 				}
 				connectedElevators[message.Sender] = true
 			case cl.Backup:
+				sys.Print()
 				sys = scheduler.SystemFromBackup(message)
 			}
 		}

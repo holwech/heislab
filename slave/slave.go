@@ -22,7 +22,7 @@ func (sl *Slave) Init() {
 	sl.MotorTimer = time.NewTimer(time.Second)
 	sl.MotorTimer.Stop()
 	sl.EngineState = cl.EngineOK
-	sl.MasterID = cl.Unknown
+	sl.MasterID = cl.All
 }
 
 func initSlave() *Slave {
@@ -38,7 +38,6 @@ func Run() {
 	sl := initSlave()
 	receive, send := nw.Channels()
 	time.Sleep(50 * time.Millisecond)
-	sendMsg(nw.LocalIP, "", cl.System, cl.Startup, send, ol)
 	ticker := time.NewTicker(8 * time.Second)
 
 	for {
@@ -100,11 +99,7 @@ func handleInput(sl *Slave, nw *network.Network, message network.Message, send c
 	case cl.Connection:
 		switch message.Content {
 		case cl.Failed:
-			//Assumes lost connection on timeout. This will be changed later
-			if sl.MasterID != nw.LocalIP {
-				sendMsg(nw.LocalIP, "", cl.System, cl.SetMaster, send, ol)
-				sl.MasterID = nw.LocalIP
-			}
+			network.PrintMessage(&message)
 		}
 	}
 }

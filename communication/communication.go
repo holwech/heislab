@@ -54,6 +54,7 @@ func msgSorter(cm *Communication) {
 		select {
 		// When messages are received
 		case message := <-cm.CommReceive:
+			PrintMessage(message)
 			// If message is a receive-confirmation, push to status-channel
 			if message.Response == cl.Connection {
 				// Filters out status-messages that are not relevant for receiver
@@ -90,9 +91,9 @@ func msgSorter(cm *Communication) {
 			if message.ReceiverIP != cl.All {
 				timeSent := Timestamp{
 					SenderIP: message.SenderIP,
-					MsgID:		message.MsgID,
+					MsgID:    message.MsgID,
 					SendTime: time.Now(),
-					Status:	 cl.Sent,
+					Status:   cl.Sent,
 				}
 				messageLog[message.MsgID] = timeSent
 			}
@@ -101,7 +102,7 @@ func msgSorter(cm *Communication) {
 			currentTime := time.Now()
 			for msgID, metadata := range messageLog {
 				timeDiff := currentTime.Sub(metadata.SendTime)
-				if timeDiff > 50 * time.Millisecond {
+				if timeDiff > 50*time.Millisecond {
 					delete(messageLog, msgID)
 					status := CommData{
 						Key:        com_id,
