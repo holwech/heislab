@@ -136,7 +136,6 @@ func broadcast(commSend chan CommData, localIP string, port string) {
 		convMsg, err := json.Marshal(message)
 		printError("=== ERROR: Convertion of json failed in broadcast", err)
 		_, err = connection.Write(convMsg)
-		printError("=== ERROR: Write in broadcast failed", err)
 		if err != nil {
 			_, err = lConnection.Write(convMsg)
 			printError("=== ERROR: Write in broadcast localhost failed", err)
