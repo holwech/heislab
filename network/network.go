@@ -7,7 +7,7 @@ import (
 	"github.com/satori/go.uuid"
 )
 
-const info = true
+const info = false
 const conn = false
 const printAll = false
 

@@ -83,15 +83,14 @@ func Run() {
 				}
 			}
 			isActiveMaster = (masterIP == nwMaster.LocalIP)
-
 			for elevIP := range connectedElevators {
 				connectedElevators[elevIP] = false
 			}
 		case message := <-recvFromMaster:
 			switch message.Response {
 			case cl.Ping:
-				_, elevatorAdded := connectedElevators[message.Sender]
-				if isActiveMaster && !elevatorAdded {
+				_, alreadyConnected := connectedElevators[message.Sender]
+				if isActiveMaster && !alreadyConnected {
 					join := network.Message{nwSlave.LocalIP, message.Sender, network.CreateID(cl.Master), cl.System, cl.JoinMaster}
 					sendToSlave <- join
 					backup := sys.CreateBackup()
