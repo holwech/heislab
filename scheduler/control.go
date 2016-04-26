@@ -103,7 +103,7 @@ func (sys *System) NotifyEngineOk(elevatorIP string) {
 }
 
 func (sys *System) NotifyDisconnectionActive(elevatorIP string) {
-	elevator, inSystem := sys.Elevators[elevatorIP]
+	_, inSystem := sys.Elevators[elevatorIP]
 	if inSystem {
 		sys.UnassignOuterOrders(elevatorIP)
 		sys.RemoveElevator(elevatorIP)
@@ -111,7 +111,7 @@ func (sys *System) NotifyDisconnectionActive(elevatorIP string) {
 }
 
 func (sys *System) NotifyDisconnectionInactive(elevatorIP string) {
-	elevator, inSystem := sys.Elevators[elevatorIP]
+	_, inSystem := sys.Elevators[elevatorIP]
 	if inSystem {
 		for floor := 0; floor < 4; floor++ {
 			sys.UnhandledOrdersDown[floor] = false
