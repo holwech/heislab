@@ -130,7 +130,8 @@ func (sys *System) AssignOuterOrders() {
 			for elevIP := range sys.Elevators {
 				elev := sys.Elevators[elevIP]
 				cost := elev.costOfOuterOrder(floor, 1)
-				if cost < minCost {
+				if (cost < minCost) ||
+					(cost == minCost && elevIP < minCostElevIP) {
 					minCost = cost
 					minCostElev = elev
 					minCostElevIP = elevIP
@@ -155,7 +156,8 @@ func (sys *System) AssignOuterOrders() {
 			for elevIP := range sys.Elevators {
 				elev := sys.Elevators[elevIP]
 				cost := elev.costOfOuterOrder(floor, -1)
-				if cost < minCost {
+				if (cost < minCost) ||
+					(cost == minCost && elevIP < minCostElevIP) {
 					minCost = cost
 					minCostElev = elev
 					minCostElevIP = elevIP
