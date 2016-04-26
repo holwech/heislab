@@ -72,7 +72,6 @@ func Run() {
 			sendToMaster <- ping
 			fmt.Println(isActiveMaster)
 		case <-checkConnected.C:
-			masterIP := nwSlave.LocalIP
 			for elevIP := range connectedElevators {
 				if connectedElevators[elevIP] == false {
 					if isActiveMaster {
@@ -80,34 +79,32 @@ func Run() {
 					} else {
 						sys.NotifyDisconnectionInactive(elevIP)
 					}
-				} else {
-					//Select master as the connected elevator with lowest IP
-					if elevIP < masterIP {
-						masterIP = elevIP
-					}
+					delete(connectedElevators, elevIP)
 				}
 			}
-			isActiveMaster = (masterIP == nwMaster.LocalIP)
+			masterIP := nwSlave.LocalIP
 			for elevIP := range connectedElevators {
+				if elevIP < masterIP {
+					masterIP = elevIP
+				}
 				connectedElevators[elevIP] = false
 			}
+			isActiveMaster = (masterIP == nwMaster.LocalIP)
 			connectedElevators[nwMaster.LocalIP] = true
 		case message := <-recvFromMaster:
 			switch message.Response {
 			case cl.Ping:
 				_, alreadyConnected := connectedElevators[message.Sender]
 				if isActiveMaster && !alreadyConnected {
-					join := network.Message{nwSlave.LocalIP, message.Sender, network.CreateID(cl.Master), cl.System, cl.JoinMaster}
-					sendToSlave <- join
 					backup := sys.CreateBackup()
 					backup.Receiver = message.Sender
 					sendToMaster <- backup
-					sys.AddElevator(message.Sender)
 				}
 				connectedElevators[message.Sender] = true
 			case cl.Backup:
 				sys.Print()
-				sys = scheduler.SystemFromBackup(message)
+				sys2 := scheduler.SystemFromBackup(message)
+				sys = scheduler.MergeSystems(sys, sys2)
 			}
 		}
 	}
