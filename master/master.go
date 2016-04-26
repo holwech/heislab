@@ -1,7 +1,6 @@
 package master
 
 import (
-	"fmt"
 	"github.com/holwech/heislab/cl"
 	"github.com/holwech/heislab/network"
 	"github.com/holwech/heislab/scheduler"
@@ -61,18 +60,18 @@ func Run() {
 					sys.NotifyEngineFail(message.Sender)
 				case cl.EngineOK:
 					sys.NotifyEngineOk(message.Sender)
-			case cl.Connection:
-				switch message.Content {
-				case cl.OK:
-					ol.Done(message.ID)
-				case cl.Failed:
-					if isActiveMaster{
-						sys.NotifyDisconnectionActive(message.Sender)
-					}else{
-						sys.NotifyDisconnectionInactive(message.Sender)
+				case cl.Connection:
+					switch message.Content {
+					case cl.OK:
+						ol.Done(message.ID)
+					case cl.Failed:
+						if isActiveMaster {
+							sys.NotifyDisconnectionActive(message.Sender)
+						} else {
+							sys.NotifyDisconnectionInactive(message.Sender)
+						}
 					}
 				}
-
 			}
 			sys.AssignOuterOrders()
 			sys.CommandConnectedElevators(slaveCommands)

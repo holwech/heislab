@@ -1,6 +1,9 @@
 package network
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+)
 
 type MsgQueue struct {
 	list []*Message
@@ -8,7 +11,7 @@ type MsgQueue struct {
 
 func (ol *MsgQueue) next() (Message, error) {
 	var message *Message
-	if (len(ol.list) > 0) {
+	if len(ol.list) > 0 {
 		message = ol.list[0]
 		ol.remove(0)
 		return *message, nil
@@ -29,19 +32,21 @@ func (ol *MsgQueue) Add(order *Message) {
 }
 
 func (ol *MsgQueue) Done(id string) {
-	for i, val := range ol.list {
+	for _, val := range ol.list {
 		if val.ID == id {
-			ol.remove(i)
+			//ol.remove(i)
+			fmt.Println("LOLOLOLOL", len(ol.list))
+			break
 		}
 	}
 }
 
 func (ol *MsgQueue) remove(i int) {
 	if len(ol.list) == 1 {
-		ol.list[0] = nil
+		ol.list[0] = nil
 	} else {
-		copy(ol.list[i:], ol.list[i + 1:])
-		ol.list[len(ol.list) - 1] = nil
-		ol.list = ol.list[:len(ol.list) - 1]
+		copy(ol.list[i:], ol.list[i+1:])
+		ol.list[len(ol.list)-1] = nil
+		ol.list = ol.list[:len(ol.list)-1]
 	}
 }
