@@ -4,6 +4,7 @@ import (
 	"github.com/holwech/heislab/cl"
 	"github.com/holwech/heislab/network"
 	"github.com/holwech/heislab/scheduler"
+	"time"
 )
 
 //REmove pls
@@ -23,7 +24,7 @@ func Run() {
 
 	pinger := time.NewTicker(100 * time.Millisecond)
 	checkConnected := time.NewTicker(300 * time.Millisecond)
-	connectedElevators = make(map[string]bool)
+	connectedElevators := make(map[string]bool)
 	for {
 		select {
 		case message := <-recvFromSlave:
@@ -63,12 +64,12 @@ func Run() {
 				sendToSlave <- command
 			}
 		case <-pinger.C:
-			ping := network.Message{nwMaster.LocalIP, message.Sender, network.CreateID(cl.Master), cl.Ping, ""}
+			ping := network.Message{nwMaster.LocalIP, cl.All, network.CreateID(cl.Master), cl.Ping, ""}
 			sendToMaster <- ping
 		case <-checkConnected.C:
-			masterIP := nw.LocalIP
+			masterIP := nwSlave.LocalIP
 			for elevIP := range connectedElevators {
-				if checkConnected[elevIP] == false {
+				if connectedElevators[elevIP] == false {
 					if isActiveMaster {
 						sys.NotifyDisconnectionActive(elevIP)
 					} else {
@@ -81,13 +82,10 @@ func Run() {
 					}
 				}
 			}
-			if masterIP == nw.LocalIP {
-				isActiveMaster = true
-			} else {
-				isActiveMaster = false
-			}
+			isActiveMaster = (masterIP == nwMaster.LocalIP)
+
 			for elevIP := range connectedElevators {
-				checkConnected[elevIP] = false
+				connectedElevators[elevIP] = false
 			}
 		case message := <-recvFromMaster:
 			switch message.Response {
