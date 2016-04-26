@@ -118,7 +118,6 @@ func (sys *System) AddElevator(elevatorIP string) bool {
 	return !exists
 }
 
-//Deletes an elevator from the system and returns its outer orders to unhandled
 func (sys *System) RemoveElevator(elevatorIP string) bool {
 	_, exists := sys.Elevators[elevatorIP]
 	if exists {

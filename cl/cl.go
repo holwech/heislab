@@ -52,7 +52,6 @@ var Timeout string = "TIMEOUT"
 var Sent string = "SENT"
 var Failed string = "FAILED"
 
-
 // === Ports
 var SReadPort string = ":25101"
 var SWritePort string = ":25010"

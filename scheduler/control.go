@@ -57,6 +57,7 @@ func (sys *System) NotifyFloor(elevatorIP string, floor int, outgoingCommands ch
 		} else if elevator.Direction == -1 && hasUpOrdersBelow {
 			shouldStop = false
 		}
+		shouldStop = shouldStop || elevator.InnerOrders[floor]
 		if shouldStop {
 			sys.sendStopCommands(elevatorIP, outgoingCommands)
 			sys.ClearOrder(elevatorIP, floor)
@@ -98,6 +99,25 @@ func (sys *System) NotifyEngineOk(elevatorIP string) {
 	if inSystem {
 		elevator.EngineFail = false
 		sys.Elevators[elevatorIP] = elevator
+	}
+}
+
+func (sys *System) NotifyDisconnectionActive(elevatorIP string) {
+	elevator, inSystem := sys.Elevators[elevatorIP]
+	if inSystem {
+		sys.UnassignOuterOrders(elevatorIP)
+		sys.RemoveElevator(elevatorIP)
+	}
+}
+
+func (sys *System) NotifyDisconnectionInactive(elevatorIP string) {
+	elevator, inSystem := sys.Elevators[elevatorIP]
+	if inSystem {
+		for floor := 0; floor < 4; floor++ {
+			sys.UnhandledOrdersDown[floor] = false
+			sys.UnhandledOrdersUp[floor] = false
+		}
+		sys.RemoveElevator(elevatorIP)
 	}
 }
 

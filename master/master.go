@@ -19,7 +19,6 @@ func Run() {
 	sys := scheduler.NewSystem()
 	slaveCommands := make(chan network.Message, 100)
 	isActiveMaster := false
-
 	for {
 		select {
 		case message := <-receive:
@@ -62,19 +61,24 @@ func Run() {
 					sys.NotifyEngineFail(message.Sender)
 				case cl.EngineOK:
 					sys.NotifyEngineOk(message.Sender)
-				}
 			case cl.Connection:
 				switch message.Content {
 				case cl.OK:
 					ol.Done(message.ID)
+				case cl.Failed:
+					if isActiveMaster{
+						sys.NotifyDisconnectionActive(message.Sender)
+					}else{
+						sys.NotifyDisconnectionInactive(message.Sender)
+					}
 				}
+
 			}
 			sys.AssignOuterOrders()
 			sys.CommandConnectedElevators(slaveCommands)
 			sys.Print()
 		case command := <-slaveCommands:
 			if isActiveMaster {
-				fmt.Println("wt\n\n\n\n\nn\n\n\nf")
 				command.Sender = nw.LocalIP
 				command.ID = network.CreateID(cl.Master)
 				send <- command
