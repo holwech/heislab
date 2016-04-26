@@ -5,9 +5,6 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"time"
-
-	"github.com/holwech/heislab/cl"
 )
 
 const com_id = "2323" //Key for all elevators in the system
@@ -19,9 +16,9 @@ type CommData struct {
 }
 
 func Init(readPort string, writePort string) (<-chan CommData, chan<- CommData) {
-	receive = make(chan CommData, 10)
-	send = make(chan CommData, 10)
-	localIP = GetLocalIP()
+	receive := make(chan CommData, 10)
+	send := make(chan CommData, 10)
+	localIP := GetLocalIP()
 	go listen(receive, readPort)
 	go broadcast(send, localIP, writePort)
 	return receive, send
@@ -45,7 +42,6 @@ func broadcast(commSend chan CommData, localIP string, port string) {
 		convMsg, err := json.Marshal(message)
 		printError("Convertion of json failed in broadcast", err)
 		_, err = connection.Write(convMsg)
-		printError("Write in broadcast failed", err)
 		if err != nil {
 			_, err = lConnection.Write(convMsg)
 			printError("Write in broadcast localhost failed", err)

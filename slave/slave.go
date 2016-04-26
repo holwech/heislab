@@ -1,7 +1,6 @@
 package slave
 
 import (
-	"fmt"
 	"github.com/holwech/heislab/cl"
 	"github.com/holwech/heislab/driver"
 	"github.com/holwech/heislab/master"
@@ -13,12 +12,12 @@ func Run() {
 	innerChan, outerChan, floorChan := driver.InitElevator()
 	nw := network.InitNetwork(cl.SReadPort, cl.SWritePort, cl.Slave)
 	master.InitMaster()
-	DoorTimer = time.NewTimer(time.Second)
+	DoorTimer := time.NewTimer(time.Second)
 	DoorTimer.Stop()
-	MotorTimer = time.NewTimer(time.Second)
+	MotorTimer := time.NewTimer(time.Second)
 	MotorTimer.Stop()
-	EngineState = cl.EngineOK
-	MasterID = cl.All
+	EngineState := cl.EngineOK
+	MasterID := cl.All
 	receive, send := nw.Channels()
 	time.Sleep(50 * time.Millisecond)
 
@@ -29,7 +28,6 @@ func Run() {
 		case outerOrder := <-outerChan:
 			network.Send(MasterID, cl.Slave, cl.OuterOrder, outerOrder, send)
 		case newFloor := <-floorChan:
-			fmt.Printf("Floor: %d\n", newFloor)
 			network.Send(MasterID, cl.Slave, cl.Floor, newFloor, send)
 			if newFloor != -1 {
 				MotorTimer.Reset(6 * time.Second)
@@ -72,7 +70,7 @@ func Run() {
 			case cl.Connection:
 				switch message.Content {
 				case cl.Failed:
-					network.PrintMessage(&message)
+					network.PrintMessage(&message, "Slave received message")
 				}
 			}
 		}

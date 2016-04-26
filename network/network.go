@@ -37,7 +37,6 @@ func (nw *Network) Channels() (<-chan Message, chan<- Message) {
 func InitNetwork(readPort string, writePort string, senderType string) *Network {
 	nw := new(Network)
 	nw.Init(readPort, writePort, senderType)
-	ol := new(MsgQueue)
 	commReceive, commSend := communication.Init(nw.ReadPort, nw.WritePort)
 	go receiver(nw, commReceive)
 	go sender(nw, commSend)
@@ -58,7 +57,7 @@ func receiver(nw *Network, commReceive <-chan communication.CommData) {
 		convMsg := commToMsg(&message)
 		assertMsg(&convMsg)
 		if printAll && convMsg.Response != cl.Ping {
-			PrintMessage(&convMsg)
+			PrintMessage(&convMsg, nw.SenderType)
 		}
 		if nw.SenderType == cl.Slave {
 			if convMsg.Response != cl.Connection && convMsg.ID[0] == 'M' &&
@@ -81,17 +80,19 @@ func receiver(nw *Network, commReceive <-chan communication.CommData) {
 
 func printInfo(comment string, message *Message) {
 	if ((info && message.Response != cl.Connection) || conn) && message.Response != cl.Ping {
-		fmt.Println("NETW: " + comment)
-		PrintMessage(message)
+		PrintMessage(message, comment)
 	}
 }
 
-func PrintMessage(message *Message) {
+func PrintMessage(message *Message, comment string) {
+	fmt.Println("__________________________________")
+	fmt.Println("NETW: " + comment)
 	fmt.Printf("NETW: Sender: %s\n", message.Sender)
 	fmt.Printf("NETW: Receiver: %s\n", message.Receiver)
 	fmt.Printf("NETW: ID: %s\n", message.ID)
 	fmt.Printf("NETW: Response: %s\n", message.Response)
 	fmt.Printf("NETW: Content: %v\n", message.Content)
+	fmt.Println("__________________________________")
 }
 
 func printError(errMsg string, err error) {
