@@ -88,6 +88,7 @@ func Run() {
 			}
 			isActiveMaster = (masterIP == nwMaster.LocalIP)
 			connectedElevators[nwMaster.LocalIP] = true
+			sys.SendLightCommands(slaveCommands)
 		case message := <-recvFromMaster:
 			switch message.Response {
 			case cl.Ping:
