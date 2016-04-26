@@ -96,8 +96,10 @@ func Run() {
 				_, alreadyConnected := connectedElevators[message.Sender]
 				if !alreadyConnected {
 					merge := sys.CreateBackup()
-					merge.Receiver = message.Sender
-					sendToMaster <- merge
+					for elevIP := connectedElevators{
+						merge.Receiver = message.elevIP
+						sendToMaster <- merge
+					}
 				}
 				connectedElevators[message.Sender] = true
 			case cl.Backup:
