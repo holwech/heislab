@@ -68,6 +68,7 @@ func Run() {
 				sendToSlave <- command
 			}
 		case <-pinger.C:
+			fmt.Println("---- This master is ", isActiveMaster)
 			ping := network.Message{nwMaster.LocalIP, cl.All, network.CreateID(cl.Master), cl.Ping, ""}
 			sendToMaster <- ping
 		case <-checkConnected.C:
