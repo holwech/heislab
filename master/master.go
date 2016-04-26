@@ -69,6 +69,7 @@ func Run() {
 			ping := network.Message{nwMaster.LocalIP, cl.All, network.CreateID(cl.Master), cl.Ping, ""}
 			sendToMaster <- ping
 		case <-checkConnected.C:
+			removedElevator := false
 			for elevIP := range connectedElevators {
 				if connectedElevators[elevIP] == false {
 					if isActiveMaster {
@@ -77,7 +78,11 @@ func Run() {
 						sys.NotifyDisconnectionInactive(elevIP)
 					}
 					delete(connectedElevators, elevIP)
+					removedElevator = true
 				}
+			}
+			if removedElevator {
+				sys.SendLightCommands(slaveCommands)
 			}
 			masterIP := nwSlave.LocalIP
 			for elevIP := range connectedElevators {
@@ -88,7 +93,6 @@ func Run() {
 			}
 			isActiveMaster = (masterIP == nwMaster.LocalIP)
 			connectedElevators[nwMaster.LocalIP] = true
-			sys.SendLightCommands(slaveCommands)
 		case message := <-recvFromMaster:
 			switch message.Response {
 			case cl.Ping:
