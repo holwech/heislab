@@ -70,6 +70,7 @@ func Run() {
 		case <-pinger.C:
 			ping := network.Message{nwMaster.LocalIP, cl.All, network.CreateID(cl.Master), cl.Ping, ""}
 			sendToMaster <- ping
+			fmt.Println(isActiveMaster)
 		case <-checkConnected.C:
 			masterIP := nwSlave.LocalIP
 			for elevIP := range connectedElevators {
