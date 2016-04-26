@@ -7,9 +7,9 @@ import (
 	"github.com/satori/go.uuid"
 )
 
-const info = false
+const info = true
 const conn = false
-const printAll = true
+const printAll = false
 
 type Message struct {
 	Sender, Receiver, ID, Response string
@@ -61,7 +61,7 @@ func receiver(nw *Network, commReceive <-chan communication.CommData) {
 		message := <-commReceive
 		convMsg := commToMsg(&message)
 		assertMsg(&convMsg)
-		if printAll {
+		if printAll && convMsg.Response != cl.Ping {
 			PrintMessage(&convMsg)
 		}
 		if nw.SenderType == cl.Slave {
@@ -84,7 +84,7 @@ func receiver(nw *Network, commReceive <-chan communication.CommData) {
 }
 
 func printInfo(comment string, message *Message) {
-	if (info && message.Response != cl.Connection) || conn {
+	if ((info && message.Response != cl.Connection) || conn) && message.Response != cl.Ping {
 		fmt.Println("NETW: " + comment)
 		PrintMessage(message)
 	}

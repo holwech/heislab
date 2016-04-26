@@ -54,7 +54,6 @@ func msgSorter(cm *Communication) {
 		select {
 		// When messages are received
 		case message := <-cm.CommReceive:
-			PrintMessage(message)
 			// If message is a receive-confirmation, push to status-channel
 			if message.Response == cl.Connection {
 				// Filters out status-messages that are not relevant for receiver
