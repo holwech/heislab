@@ -57,9 +57,9 @@ func sender(nw *Network, commSend chan<- communication.CommData) {
 func receiver(nw *Network, commReceive <-chan communication.CommData) {
 	for {
 		message := <-commReceive
-		convMsg := commToMsg(&message)
-		assertMsg(&convMsg)
-		if convMsg.Response != cl.Ping{
+		if message.Response != cl.Ping {
+			convMsg := commToMsg(&message)
+			assertMsg(&convMsg)
 			if printAll {
 				PrintMessage(&convMsg)
 			}
@@ -73,8 +73,8 @@ func receiver(nw *Network, commReceive <-chan communication.CommData) {
 			}
 			if nw.SenderType == cl.Master {
 				if ((convMsg.ID[0] == 'S') && (convMsg.Response != cl.Connection)) ||
-					 ((convMsg.ID[0] == 'M') && (convMsg.Response != cl.Connection)) ||
-					 ((convMsg.ID[0] == 'M') && (convMsg.Response == cl.Connection) && (convMsg.Receiver == nw.LocalIP)) {
+					((convMsg.ID[0] == 'M') && (convMsg.Response != cl.Connection)) ||
+					((convMsg.ID[0] == 'M') && (convMsg.Response == cl.Connection) && (convMsg.Receiver == nw.LocalIP)) {
 					nw.Receive <- convMsg
 					printInfo("Master received message", &convMsg)
 				}
