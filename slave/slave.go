@@ -41,7 +41,6 @@ func Run() {
 	sendMsg(nw.LocalIP, "", cl.System, cl.Startup, send, ol)
 	ticker := time.NewTicker(8 * time.Second)
 
-	sl.StartupTimer.Reset(50 * time.Millisecond)
 	for {
 		select {
 		case innerOrder := <-innerChan:
@@ -63,9 +62,6 @@ func Run() {
 			sendMsg(sl.MasterID, "", cl.DoorClosed, "", send, ol)
 		case message := <-receive:
 			handleInput(sl, nw, message, send, ol)
-		case <-sl.StartupTimer.C:
-			sendMsg(nw.LocalIP, "", cl.System, cl.SetMaster, send, ol)
-			sl.MasterID = nw.LocalIP
 		case <-sl.MotorTimer.C:
 			sl.EngineState = cl.EngineFail
 			sendMsg(sl.MasterID, "", cl.System, cl.EngineFail, send, ol)
@@ -101,9 +97,6 @@ func handleInput(sl *Slave, nw *network.Network, message network.Message, send c
 		driver.SetOuterPanelLamp(-1, message.Content.(int), 1)
 	case cl.LightOffOuterDown:
 		driver.SetOuterPanelLamp(-1, message.Content.(int), 0)
-	case cl.Backup:
-		send <- message
-		ol.Add(&message)
 	case cl.Connection:
 		switch message.Content {
 		case cl.Failed:
@@ -112,12 +105,6 @@ func handleInput(sl *Slave, nw *network.Network, message network.Message, send c
 				sendMsg(nw.LocalIP, "", cl.System, cl.SetMaster, send, ol)
 				sl.MasterID = nw.LocalIP
 			}
-		}
-	case cl.System:
-		switch message.Content {
-		case cl.JoinMaster:
-			sl.StartupTimer.Stop()
-			sl.MasterID = message.Sender
 		}
 	}
 }
