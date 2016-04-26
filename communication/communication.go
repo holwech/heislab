@@ -125,6 +125,11 @@ func broadcast(commSend chan CommData, localIP string, port string) {
 	localAddress, err := net.ResolveUDPAddr("udp", GetLocalIP())
 	connection, err := net.DialUDP("udp", localAddress, broadcastAddress)
 	printError("=== ERROR: DialUDP in Broadcast failed.", err)
+
+	localhostAddress, err := net.ResolveUDPAddr("udp", "localhost"+port)
+	printError("=== ERROR: ResolvingUDPAddr in Broadcast localhost failed.", err)
+	lConnection, err := net.DialUDP("udp", localAddress, localhostAddress)
+	printError("=== ERROR: DialUDP in Broadcast localhost failed.", err)
 	defer connection.Close()
 	for {
 		message := <-commSend
@@ -132,6 +137,10 @@ func broadcast(commSend chan CommData, localIP string, port string) {
 		printError("=== ERROR: Convertion of json failed in broadcast", err)
 		_, err = connection.Write(convMsg)
 		printError("=== ERROR: Write in broadcast failed", err)
+		if err != nil {
+			_, err = lConnection.Write(convMsg)
+			printError("=== ERROR: Write in broadcast localhost failed", err)
+		}
 	}
 }
 
