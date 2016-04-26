@@ -1,7 +1,6 @@
 package master
 
 import (
-	"fmt"
 	"github.com/holwech/heislab/cl"
 	"github.com/holwech/heislab/network"
 	"github.com/holwech/heislab/scheduler"
@@ -14,7 +13,6 @@ func InitMaster() {
 }
 
 func Run() {
-	fmt.Println("Starting master")
 	nwSlave, _ := network.InitNetwork(cl.MReadPort, cl.MWritePort, cl.Master)
 	recvFromSlave, sendToSlave := nwSlave.Channels()
 	nwMaster, _ := network.InitNetwork(cl.MtoMPort, cl.MtoMPort, cl.Master)
@@ -96,17 +94,16 @@ func Run() {
 				_, alreadyConnected := connectedElevators[message.Sender]
 				if !alreadyConnected {
 					merge := sys.CreateBackup()
-					for elevIP := connectedElevators{
-						merge.Receiver = message.elevIP
+					for elevIP := range connectedElevators {
+						merge.Receiver = elevIP
 						sendToMaster <- merge
 					}
 				}
 				connectedElevators[message.Sender] = true
 			case cl.Backup:
-				sys.Print()
 				receivedSys := scheduler.SystemFromBackup(message)
 				sys = scheduler.MergeSystems(sys, receivedSys)
-				fmt.Println("merge")
+				sys.SendLightCommands(slaveCommands)
 			}
 		}
 	}

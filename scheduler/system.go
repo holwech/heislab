@@ -207,5 +207,34 @@ func (sys *System) Print() {
 	fmt.Println(sys.UnhandledOrdersUp)
 	fmt.Println(sys.UnhandledOrdersDown)
 	fmt.Println("--------------------------")
+}
 
+func (sys *System) SendLightCommands(outgoingCommands chan network.Message) {
+	for floor := 0; floor < 4; floor++ {
+		assignedUp := false
+		assignedDown := false
+		for elevIP, elev := range sys.Elevators {
+			if elev.InnerOrders[floor] {
+				outgoingCommands <- network.Message{"", elevIP, "", cl.LightOnInner, floor}
+			} else {
+				outgoingCommands <- network.Message{"", elevIP, "", cl.LightOffInner, floor}
+			}
+			if elev.OuterOrdersUp[floor] {
+				assignedUp = true
+			}
+			if elev.OuterOrdersDown[floor] {
+				assignedDown = true
+			}
+		}
+		if assignedDown || sys.UnhandledOrdersDown[floor] {
+			outgoingCommands <- network.Message{"", cl.All, "", cl.LightOnOuterDown, floor}
+		} else {
+			outgoingCommands <- network.Message{"", cl.All, "", cl.LightOffOuterDown, floor}
+		}
+		if assignedUp || sys.UnhandledOrdersUp[floor] {
+			outgoingCommands <- network.Message{"", cl.All, "", cl.LightOnOuterUp, floor}
+		} else {
+			outgoingCommands <- network.Message{"", cl.All, "", cl.LightOffOuterUp, floor}
+		}
+	}
 }
