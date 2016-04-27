@@ -74,7 +74,7 @@ func receiver(nw *Network, commReceive <-chan communication.CommData) {
 		}
 		if nw.SenderType == cl.Master {
 			if ((convMsg.ID[0] == 'S') && (convMsg.Response != cl.Connection)) ||
-				((convMsg.ID[0] == 'M') && (convMsg.Response != cl.Connection) && convMsg. Receiver != nw.LocalIP) ||
+				((convMsg.ID[0] == 'M') && (convMsg.Response != cl.Connection) && convMsg.Receiver != nw.LocalIP) ||
 				((convMsg.ID[0] == 'M') && (convMsg.Response == cl.Connection) && (convMsg.Receiver == nw.LocalIP)) {
 				nw.Receive <- convMsg
 				printInfo("Master received message", &convMsg)
@@ -135,10 +135,10 @@ func assertMsg(message *Message) {
 	}
 }
 
-func Send(masterID string, id string, response string, content interface{}, send chan<- Message) {
+func Send(masterID string, senderType string, response string, content interface{}, send chan<- Message) {
 	message := Message{
 		Receiver: masterID,
-		ID:       id,
+		ID:       CreateID(senderType),
 		Response: response,
 		Content:  content,
 	}
