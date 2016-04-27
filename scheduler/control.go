@@ -1,6 +1,7 @@
 package scheduler
 
 import (
+	"fmt"
 	"github.com/holwech/heislab/cl"
 	"github.com/holwech/heislab/network"
 )
@@ -38,7 +39,6 @@ func (sys *System) NotifyFloor(elevatorIP string, floor int, outgoingCommands ch
 	elevator, inSystem := sys.Elevators[elevatorIP]
 	if inSystem && floor != -1 {
 		elevator.Floor = floor
-		sys.Elevators[elevatorIP] = elevator
 
 		hasDownOrdersAbove := false
 		hasUpOrdersBelow := false
@@ -67,6 +67,8 @@ func (sys *System) NotifyFloor(elevatorIP string, floor int, outgoingCommands ch
 			shouldStop = true
 		}
 		if shouldStop {
+			elevator.AwaitingCommand = false
+			sys.Elevators[elevatorIP] = elevator
 			sys.sendStopCommands(elevatorIP, outgoingCommands)
 			sys.ClearOrder(elevatorIP, floor)
 			sys.SetBehaviour(elevatorIP, DoorOpen)
@@ -79,6 +81,7 @@ func (sys *System) NotifyDoorClosed(elevatorIP string) {
 	if inSystem {
 		if elevator.hasMoreOrders() {
 			elevator.AwaitingCommand = true
+			fmt.Println("more orders")
 		} else {
 			sys.SetBehaviour(elevatorIP, Idle)
 		}
@@ -174,14 +177,13 @@ func (sys *System) AssignOuterOrders() {
 
 func (sys *System) CommandConnectedElevators(outgoingCommands chan network.Message) {
 	for elevIP, elev := range sys.Elevators {
-		if elev.AwaitingCommand {
-			switch elev.CurrentBehaviour {
-			case Idle:
-				if elev.hasOrderAtFloor(elev.Floor) {
-					sys.sendStopCommands(elevIP, outgoingCommands)
-					sys.ClearOrder(elevIP, elev.Floor)
-					sys.SetBehaviour(elevIP, DoorOpen)
-				} else {
+		if elev.CurrentBehaviour == Idle || elev.CurrentBehaviour == DoorOpen {
+			if elev.hasOrderAtFloor(elev.Floor) {
+				sys.sendStopCommands(elevIP, outgoingCommands)
+				sys.ClearOrder(elevIP, elev.Floor)
+				sys.SetBehaviour(elevIP, DoorOpen)
+			} else {
+				if elev.AwaitingCommand {
 					var command network.Message
 					command.Receiver = elevIP
 					if elev.Direction == 1 {
@@ -206,38 +208,6 @@ func (sys *System) CommandConnectedElevators(outgoingCommands chan network.Messa
 					outgoingCommands <- command
 					sys.SetBehaviour(elevIP, Moving)
 				}
-			case Moving:
-			case DoorOpen:
-				if elev.hasOrderAtFloor(elev.Floor) {
-					sys.sendStopCommands(elevIP, outgoingCommands)
-					sys.ClearOrder(elevIP, elev.Floor)
-					sys.SetBehaviour(elevIP, DoorOpen)
-				} else {
-					var command network.Message
-					command.Receiver = elevIP
-					if elev.Direction == 1 {
-						command.Response = cl.Down
-						sys.SetDirection(elevIP, -1)
-						for floor := elev.Floor + 1; floor < 4; floor++ {
-							if elev.hasOrderAtFloor(floor) {
-								command.Response = cl.Up
-								sys.SetDirection(elevIP, 1)
-							}
-						}
-					} else {
-						command.Response = cl.Up
-						sys.SetDirection(elevIP, 1)
-						for floor := 0; floor < elev.Floor; floor++ {
-							if elev.hasOrderAtFloor(floor) {
-								command.Response = cl.Down
-								sys.SetDirection(elevIP, -1)
-							}
-						}
-					}
-					outgoingCommands <- command
-					sys.SetBehaviour(elevIP, Moving)
-				}
-			case EngineFailure:
 			}
 		}
 	}

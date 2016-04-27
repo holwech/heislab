@@ -1,6 +1,7 @@
 package master
 
 import (
+	"fmt"
 	"github.com/holwech/heislab/cl"
 	"github.com/holwech/heislab/network"
 	"github.com/holwech/heislab/scheduler"
@@ -13,6 +14,8 @@ func InitMaster() {
 }
 
 func Run() {
+	fmt.Println("fmt")
+
 	nwSlave, _ := network.InitNetwork(cl.MReadPort, cl.MWritePort, cl.Master)
 	recvFromSlaves, sendToSlaves := nwSlave.Channels()
 	nwMaster, _ := network.InitNetwork(cl.MtoMPort, cl.MtoMPort, cl.Master)
@@ -49,6 +52,7 @@ func Run() {
 
 			case cl.DoorClosed:
 				sys.NotifyDoorClosed(message.Sender)
+				fmt.Println("doorclose")
 			case cl.System:
 				switch message.Content {
 				case cl.EngineFail:
