@@ -53,6 +53,37 @@ func (elev *ElevatorState) hasMoreOrders() bool {
 	return false
 }
 
+func (elev *ElevatorState) shouldStop(floor int) bool {
+	hasDownOrdersAbove := false
+	hasUpOrdersBelow := false
+	for f := elev.Floor + 1; f < 4; f++ {
+		if elev.OuterOrdersDown[f] {
+			hasDownOrdersAbove = true
+		}
+	}
+	for f := 0; f < elev.Floor; f++ {
+		if elev.OuterOrdersUp[f] {
+			hasUpOrdersBelow = true
+		}
+	}
+	shouldStop := false
+	if elev.InnerOrders[floor] {
+		shouldStop = true
+	}
+	if elev.Direction == 1 && elev.OuterOrdersUp[floor] {
+		shouldStop = true
+	} else if elev.Direction == -1 && elev.OuterOrdersDown[floor] {
+		shouldStop = true
+	}
+	if elev.Direction == -1 && elev.OuterOrdersUp[floor] && !hasUpOrdersBelow {
+		shouldStop = true
+	} else if elev.Direction == 1 && elev.OuterOrdersDown[floor] && !hasDownOrdersAbove {
+		shouldStop = true
+	}
+	return shouldStop
+
+}
+
 func NewSystem() *System {
 	var s System
 	s.Elevators = make(map[string]ElevatorState)

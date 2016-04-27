@@ -1,7 +1,6 @@
 package scheduler
 
 import (
-	"fmt"
 	"github.com/holwech/heislab/cl"
 	"github.com/holwech/heislab/network"
 )
@@ -16,7 +15,7 @@ func (sys *System) NotifyInnerOrder(elevatorIP string, floor int, outgoingComman
 		sys.Elevators[elevatorIP] = elevator
 		cmdLight := network.Message{"", elevatorIP, "", cl.LightOnInner, floor}
 		outgoingCommands <- cmdLight
-		if (elevator.CurrentBehaviour == Idle || elevator.CurrentBehaviour == DoorOpen) && elevator.Floor != floor {
+		if elevator.CurrentBehaviour == Idle {
 			elevator.AwaitingCommand = true
 		}
 		sys.Elevators[elevatorIP] = elevator
@@ -40,38 +39,9 @@ func (sys *System) NotifyFloor(elevatorIP string, floor int, outgoingCommands ch
 	if inSystem && floor != -1 {
 		elevator.Floor = floor
 
-		hasDownOrdersAbove := false
-		hasUpOrdersBelow := false
-		for f := elevator.Floor + 1; f < 4; f++ {
-			if elevator.OuterOrdersDown[f] {
-				hasDownOrdersAbove = true
-			}
-		}
-		for f := 0; f < elevator.Floor; f++ {
-			if elevator.OuterOrdersUp[f] {
-				hasUpOrdersBelow = true
-			}
-		}
-		shouldStop := false
-		if elevator.InnerOrders[floor] {
-			shouldStop = true
-		}
-		if elevator.Direction == 1 && elevator.OuterOrdersUp[floor] {
-			shouldStop = true
-		} else if elevator.Direction == -1 && elevator.OuterOrdersDown[floor] {
-			shouldStop = true
-		}
-		if elevator.Direction == -1 && elevator.OuterOrdersUp[floor] && !hasUpOrdersBelow {
-			shouldStop = true
-		} else if elevator.Direction == 1 && elevator.OuterOrdersDown[floor] && !hasDownOrdersAbove {
-			shouldStop = true
-		}
-		if shouldStop {
-			elevator.AwaitingCommand = false
+		if elevator.shouldStop(floor) {
+			elevator.AwaitingCommand = true
 			sys.Elevators[elevatorIP] = elevator
-			sys.sendStopCommands(elevatorIP, outgoingCommands)
-			sys.ClearOrder(elevatorIP, floor)
-			sys.SetBehaviour(elevatorIP, DoorOpen)
 		}
 	}
 }
@@ -81,11 +51,10 @@ func (sys *System) NotifyDoorClosed(elevatorIP string) {
 	if inSystem {
 		if elevator.hasMoreOrders() {
 			elevator.AwaitingCommand = true
-			fmt.Println("more orders")
+			sys.Elevators[elevatorIP] = elevator
 		} else {
 			sys.SetBehaviour(elevatorIP, Idle)
 		}
-		sys.Elevators[elevatorIP] = elevator
 	}
 }
 
@@ -176,38 +145,38 @@ func (sys *System) AssignOuterOrders() {
 }
 
 func (sys *System) CommandConnectedElevators(outgoingCommands chan network.Message) {
-	for elevIP, elev := range sys.Elevators {
-		if elev.CurrentBehaviour == Idle || elev.CurrentBehaviour == DoorOpen {
-			if elev.hasOrderAtFloor(elev.Floor) {
-				sys.sendStopCommands(elevIP, outgoingCommands)
-				sys.ClearOrder(elevIP, elev.Floor)
-				sys.SetBehaviour(elevIP, DoorOpen)
-			} else {
-				if elev.AwaitingCommand {
-					var command network.Message
-					command.Receiver = elevIP
-					if elev.Direction == 1 {
-						command.Response = cl.Down
-						sys.SetDirection(elevIP, -1)
-						for floor := elev.Floor + 1; floor < 4; floor++ {
-							if elev.hasOrderAtFloor(floor) {
-								command.Response = cl.Up
-								sys.SetDirection(elevIP, 1)
-							}
-						}
-					} else {
-						command.Response = cl.Up
-						sys.SetDirection(elevIP, 1)
-						for floor := 0; floor < elev.Floor; floor++ {
-							if elev.hasOrderAtFloor(floor) {
-								command.Response = cl.Down
-								sys.SetDirection(elevIP, -1)
-							}
+	for elevatorIP, elevator := range sys.Elevators {
+		if elevator.AwaitingCommand {
+			elevator.AwaitingCommand = false
+			sys.Elevators[elevatorIP] = elevator
+			if elevator.shouldStop(elevator.Floor) {
+				sys.sendStopCommands(elevatorIP, outgoingCommands)
+				sys.ClearOrder(elevatorIP, elevator.Floor)
+				sys.SetBehaviour(elevatorIP, DoorOpen)
+			} else if elevator.CurrentBehaviour == Idle || elevator.CurrentBehaviour == DoorOpen {
+				var command network.Message
+				command.Receiver = elevatorIP
+				if elevator.Direction == 1 {
+					command.Response = cl.Down
+					sys.SetDirection(elevatorIP, -1)
+					for floor := elevator.Floor + 1; floor < 4; floor++ {
+						if elevator.hasOrderAtFloor(floor) {
+							command.Response = cl.Up
+							sys.SetDirection(elevatorIP, 1)
 						}
 					}
-					outgoingCommands <- command
-					sys.SetBehaviour(elevIP, Moving)
+				} else {
+					command.Response = cl.Up
+					sys.SetDirection(elevatorIP, 1)
+					for floor := 0; floor < elevator.Floor; floor++ {
+						if elevator.hasOrderAtFloor(floor) {
+							command.Response = cl.Down
+							sys.SetDirection(elevatorIP, -1)
+						}
+					}
 				}
+				outgoingCommands <- command
+				sys.SetBehaviour(elevatorIP, Moving)
 			}
 		}
 	}
