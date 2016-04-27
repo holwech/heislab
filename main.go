@@ -13,8 +13,9 @@ func main() {
 	fmt.Println("Starting elevator")
 	if len(os.Args) > 1 {
 		backup.Run(os.Args[1])
+		slave.Run(true)
 	} else {
 		backup.Run("")
+		slave.Run(false)
 	}
-	slave.Run()
 }

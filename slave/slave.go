@@ -31,10 +31,10 @@ func initSlave() *Slave {
 	return sl
 }
 
-func Run() {
+func Run(backup bool) {
 	innerChan, outerChan, floorChan := driver.InitElevator()
 	nw, _ := network.InitNetwork(cl.SReadPort, cl.SWritePort, cl.Slave)
-	master.InitMaster()
+	go master.Run(backup)
 	sl := initSlave()
 	receive, send := nw.Channels()
 	time.Sleep(50 * time.Millisecond)
