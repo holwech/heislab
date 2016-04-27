@@ -16,6 +16,21 @@ func checkError(err error) {
 	}
 }
 
+func Run(flag string) {
+	if flag == "-b" {
+		listen()
+		cmd := exec.Command("bash", "-c", "gnome-terminal -x go run main.go -b")
+		cmd.Start()
+		time.Sleep(time.Second)
+		go pingAlive()
+	} else {
+		cmd := exec.Command("bash", "-c", "gnome-terminal -x go run main.go -b")
+		cmd.Start()
+		time.Sleep(time.Second)
+		go pingAlive()
+	}
+}
+
 func pingAlive() {
 	broadcastAddress, err := net.ResolveUDPAddr("udp", "127.0.0.1"+port)
 	checkError(err)
@@ -37,6 +52,7 @@ func listen() {
 	checkError(err)
 	defer connection.Close()
 	fmt.Println("BACKUP")
+
 	go func(input chan string, connection *net.UDPConn) {
 		for {
 			buffer := make([]byte, 4096)
@@ -45,6 +61,7 @@ func listen() {
 			input <- string(buffer)
 		}
 	}(input, connection)
+
 	for {
 		select {
 		case <-timeout.C:
@@ -61,17 +78,3 @@ func listen() {
 	}
 }
 
-func Run(flag string) {
-	if flag == "-b" {
-		listen()
-		cmd := exec.Command("bash", "-c", "gnome-terminal -x go run main.go -b")
-		cmd.Start()
-		time.Sleep(time.Second)
-	go pingAlive()
-	} else {
-		cmd := exec.Command("bash", "-c", "gnome-terminal -x go run main.go -b")
-		cmd.Start()
-		time.Sleep(time.Second)
-		go pingAlive()
-	}
-}

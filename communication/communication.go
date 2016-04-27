@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
-	"os"
 )
 
 const com_id = "2323" //Key for all elevators in the system
@@ -24,7 +23,7 @@ func Init(readPort string, writePort string) (<-chan CommData, chan<- CommData) 
 	return receive, send
 }
 
-func broadcast(commSend chan CommData, localIP string, port string) {
+func broadcast(send chan CommData, localIP string, port string) {
 	fmt.Printf("COMM: Broadcasting message to: %s%s\n", broadcast_addr, port)
 	broadcastAddress, err := net.ResolveUDPAddr("udp", broadcast_addr+port)
 	printError("ResolvingUDPAddr in Broadcast failed.", err)
@@ -38,7 +37,7 @@ func broadcast(commSend chan CommData, localIP string, port string) {
 	printError("DialUDP in Broadcast localhost failed.", err)
 	defer connection.Close()
 	for {
-		message := <-commSend
+		message := <-send
 		convMsg, err := json.Marshal(message)
 		printError("Convertion of json failed in broadcast", err)
 		_, err = connection.Write(convMsg)
@@ -49,7 +48,7 @@ func broadcast(commSend chan CommData, localIP string, port string) {
 	}
 }
 
-func listen(commReceive chan CommData, port string) {
+func listen(receive chan CommData, port string) {
 	localAddress, err := net.ResolveUDPAddr("udp", port)
 	printError("ResolvingUDPAddr in Listen failed.", err)
 	fmt.Printf("COMM: Listening to port %d\n", localAddress.Port)
@@ -66,7 +65,7 @@ func listen(commReceive chan CommData, port string) {
 		printError("Unmarshal failed in listen", err)
 		//Filters out all messages not relevant for the system
 		if message.Key == com_id {
-			commReceive <- message
+			receive <- message
 		}
 	}
 }
@@ -84,9 +83,8 @@ func PrintMessage(data CommData) {
 
 func printError(errMsg string, err error) {
 	if err != nil {
-		fmt.Printf(errMsg + "\n")
-		fmt.Printf(err.Error() + "\n")
-		fmt.Println()
+		fmt.Println(errMsg)
+		fmt.Println(err.Error())
 	}
 }
 
@@ -95,7 +93,7 @@ func GetLocalIP() string {
 	addr, err := net.InterfaceAddrs()
 	if err != nil {
 		fmt.Printf("GetLocalIP in communication failed")
-		os.Exit(1)
+		return "localhost"
 	}
 	for _, val := range addr {
 		if ip, ok := val.(*net.IPNet); ok && !ip.IP.IsLoopback() {

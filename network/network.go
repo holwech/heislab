@@ -9,7 +9,6 @@ import (
 
 const info = true
 const conn = false
-const printAll = false
 
 type Message struct {
 	Sender, Receiver, ID, Response string
@@ -56,9 +55,6 @@ func receiver(nw *Network, commReceive <-chan communication.CommData) {
 		message := <-commReceive
 		convMsg := commToMsg(&message)
 		assertMsg(&convMsg)
-		if printAll && convMsg.Response != cl.Ping {
-			PrintMessage(&convMsg, nw.SenderType)
-		}
 		if nw.SenderType == cl.Slave {
 			if convMsg.Response != cl.Connection && convMsg.ID[0] == 'M' &&
 				(convMsg.Receiver == nw.LocalIP || convMsg.Receiver == cl.All) ||

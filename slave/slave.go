@@ -11,41 +11,30 @@ import (
 func Run(backup bool) {
 	innerChan, outerChan, floorChan := driver.InitElevator()
 	nw := network.InitNetwork(cl.SReadPort, cl.SWritePort, cl.Slave)
-	master.InitMaster()
 	DoorTimer := time.NewTimer(time.Second)
 	DoorTimer.Stop()
 	MotorTimer := time.NewTimer(time.Second)
 	MotorTimer.Stop()
-	EngineState := cl.EngineOK
-	MasterID := cl.All
-	innerChan, outerChan, floorChan := driver.InitElevator()
-	nw, _ := network.InitNetwork(cl.SReadPort, cl.SWritePort, cl.Slave)
 	go master.Run(backup)
-	sl := initSlave()
 	receive, send := nw.Channels()
 	time.Sleep(50 * time.Millisecond)
 
 	for {
 		select {
 		case innerOrder := <-innerChan:
-			network.Send(MasterID, cl.Slave, cl.InnerOrder, innerOrder, send)
+			network.Send(cl.All, cl.Slave, cl.InnerOrder, innerOrder, send)
 		case outerOrder := <-outerChan:
-			network.Send(MasterID, cl.Slave, cl.OuterOrder, outerOrder, send)
+			network.Send(cl.All, cl.Slave, cl.OuterOrder, outerOrder, send)
 		case newFloor := <-floorChan:
-			network.Send(MasterID, cl.Slave, cl.Floor, newFloor, send)
+			network.Send(cl.All, cl.Slave, cl.Floor, newFloor, send)
 			if newFloor != -1 {
 				MotorTimer.Reset(6 * time.Second)
-				if EngineState == cl.EngineFail {
-					EngineState = cl.EngineOK
-					network.Send(MasterID, cl.Slave, cl.System, cl.EngineOK, send)
-				}
 			}
 		case <-DoorTimer.C:
 			driver.SetDoorLamp(0)
-			network.Send(MasterID, cl.Slave, cl.DoorClosed, cl.Slave, send)
+			network.Send(cl.All, cl.Slave, cl.DoorClosed, cl.Slave, send)
 		case <-MotorTimer.C:
-			EngineState = cl.EngineFail
-			network.Send(MasterID, cl.Slave, cl.System, cl.EngineFail, send)
+			network.Send(cl.All, cl.Slave, cl.System, cl.EngineFail, send)
 		case message := <-receive:
 			switch message.Response {
 			case cl.Up:
