@@ -23,16 +23,16 @@ type ElevatorState struct {
 	Floor            int
 	Direction        int
 	CurrentBehaviour Behaviour
-	InnerOrders      [4]bool
-	OuterOrdersUp    [4]bool
-	OuterOrdersDown  [4]bool
+	InnerOrders      [cl.Floors]bool
+	OuterOrdersUp    [cl.Floors]bool
+	OuterOrdersDown  [cl.Floors]bool
 	EngineFail       bool
 }
 
 type System struct {
 	Elevators           map[string]ElevatorState
-	UnhandledOrdersUp   [4]bool
-	UnhandledOrdersDown [4]bool
+	UnhandledOrdersUp   [cl.Floors]bool
+	UnhandledOrdersDown [cl.Floors]bool
 }
 
 func (elev *ElevatorState) hasOrderAtFloor(floor int) bool {
@@ -45,7 +45,7 @@ func (elev *ElevatorState) hasOrderAtFloor(floor int) bool {
 }
 
 func (elev *ElevatorState) hasMoreOrders() bool {
-	for floor := 0; floor < 4; floor++ {
+	for floor := 0; floor < cl.Floors; floor++ {
 		if elev.hasOrderAtFloor(floor) {
 			return true
 		}
@@ -68,7 +68,7 @@ func MergeSystems(sys1 *System, sys2 *System) *System {
 	for elevIP, elev := range sys2.Elevators {
 		s.Elevators[elevIP] = elev
 	}
-	for floor := 0; floor < 4; floor++ {
+	for floor := 0; floor < cl.Floors; floor++ {
 		s.UnhandledOrdersDown[floor] = sys1.UnhandledOrdersDown[floor] || sys2.UnhandledOrdersDown[floor]
 		s.UnhandledOrdersUp[floor] = sys1.UnhandledOrdersUp[floor] || sys2.UnhandledOrdersUp[floor]
 	}
@@ -159,7 +159,7 @@ func (sys *System) ClearOrder(elevatorIP string, floor int) {
 func (sys *System) UnassignOuterOrders(elevatorIP string) {
 	elevator, inSystem := sys.Elevators[elevatorIP]
 	if inSystem {
-		for floor := 0; floor < 4; floor++ {
+		for floor := 0; floor < cl.Floors; floor++ {
 			if elevator.OuterOrdersUp[floor] {
 				sys.UnhandledOrdersUp[floor] = true
 				elevator.OuterOrdersUp[floor] = false
@@ -214,7 +214,7 @@ func (sys *System) Print() {
 }
 
 func (sys *System) SendLightCommands(outgoingCommands chan network.Message) {
-	for floor := 0; floor < 4; floor++ {
+	for floor := 0; floor < cl.Floors; floor++ {
 		assignedUp := false
 		assignedDown := false
 		for elevIP, elev := range sys.Elevators {

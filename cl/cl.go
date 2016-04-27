@@ -60,3 +60,6 @@ var MReadPort string = ":25010"
 var MWritePort string = ":25101"
 
 var MtoMPort string = ":26010"
+
+// === System constants
+const Floors = 4
