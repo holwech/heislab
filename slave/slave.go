@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-func Run() {
+func Run(backup bool) {
 	innerChan, outerChan, floorChan := driver.InitElevator()
 	nw := network.InitNetwork(cl.SReadPort, cl.SWritePort, cl.Slave)
 	master.InitMaster()
@@ -18,6 +18,10 @@ func Run() {
 	MotorTimer.Stop()
 	EngineState := cl.EngineOK
 	MasterID := cl.All
+	innerChan, outerChan, floorChan := driver.InitElevator()
+	nw, _ := network.InitNetwork(cl.SReadPort, cl.SWritePort, cl.Slave)
+	go master.Run(backup)
+	sl := initSlave()
 	receive, send := nw.Channels()
 	time.Sleep(50 * time.Millisecond)
 

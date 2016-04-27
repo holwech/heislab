@@ -67,7 +67,7 @@ func Run(flag string) {
 		cmd := exec.Command("bash", "-c", "gnome-terminal -x go run main.go -b")
 		cmd.Start()
 		time.Sleep(time.Second)
-		go pingAlive()
+	go pingAlive()
 	} else {
 		cmd := exec.Command("bash", "-c", "gnome-terminal -x go run main.go -b")
 		cmd.Start()

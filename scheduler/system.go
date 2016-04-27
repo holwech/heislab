@@ -4,6 +4,10 @@ import (
 	"fmt"
 	"github.com/holwech/heislab/cl"
 	"github.com/holwech/heislab/network"
+	"encoding/gob"
+	"io/ioutil"
+	"bytes"
+
 )
 
 type Behaviour int
@@ -207,5 +211,63 @@ func (sys *System) Print() {
 	fmt.Println(sys.UnhandledOrdersUp)
 	fmt.Println(sys.UnhandledOrdersDown)
 	fmt.Println("--------------------------")
+}
 
+func (sys *System) SendLightCommands(outgoingCommands chan network.Message) {
+	for floor := 0; floor < 4; floor++ {
+		assignedUp := false
+		assignedDown := false
+		for elevIP, elev := range sys.Elevators {
+			if elev.InnerOrders[floor] {
+				outgoingCommands <- network.Message{"", elevIP, "", cl.LightOnInner, floor}
+			} else {
+				outgoingCommands <- network.Message{"", elevIP, "", cl.LightOffInner, floor}
+			}
+			if elev.OuterOrdersUp[floor] {
+				assignedUp = true
+			}
+			if elev.OuterOrdersDown[floor] {
+				assignedDown = true
+			}
+		}
+		if assignedDown || sys.UnhandledOrdersDown[floor] {
+			outgoingCommands <- network.Message{"", cl.All, "", cl.LightOnOuterDown, floor}
+		} else {
+			outgoingCommands <- network.Message{"", cl.All, "", cl.LightOffOuterDown, floor}
+		}
+		if assignedUp || sys.UnhandledOrdersUp[floor] {
+			outgoingCommands <- network.Message{"", cl.All, "", cl.LightOnOuterUp, floor}
+		} else {
+			outgoingCommands <- network.Message{"", cl.All, "", cl.LightOffOuterUp, floor}
+		}
+	}
+}
+
+func (sys *System) WriteToFile() {
+	var buffer bytes.Buffer
+	encoder := gob.NewEncoder(&buffer)
+	err := encoder.Encode(*sys)
+	printError("Encode error: ", err)
+	err = ioutil.WriteFile("tmp", buffer.Bytes(), 0644)
+	printError("WriteFile error: ", err)
+	fmt.Println("Buffer data: ", buffer.String())
+}
+
+func ReadFromFile() System {
+	var sys System
+	file, err := ioutil.ReadFile("tmp")
+	printError("ReadFile error: ", err)
+	buffer := bytes.NewBuffer(file)
+	fmt.Println("Buffer data: ", buffer.String())
+	decoder := gob.NewDecoder(buffer)
+	err = decoder.Decode(&sys)
+	printError("Decode error: ", err)
+	return sys
+}
+
+func printError(comment string, err error) {
+	if err != nil {
+		fmt.Println(comment, err)
+		fmt.Println(err.Error())
+	}
 }

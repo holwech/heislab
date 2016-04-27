@@ -1,20 +1,13 @@
 package master
 
 import (
-	"fmt"
 	"github.com/holwech/heislab/cl"
 	"github.com/holwech/heislab/network"
 	"github.com/holwech/heislab/scheduler"
 	"time"
 )
 
-//REmove pls
-func InitMaster() {
-	go Run()
-}
-
-func Run() {
-	fmt.Println("Starting master")
+func Run(backup bool) {
 	nwSlave := network.InitNetwork(cl.MReadPort, cl.MWritePort, cl.Master)
 	recvFromSlave, sendToSlave := nwSlave.Channels()
 	nwMaster := network.InitNetwork(cl.MtoMPort, cl.MtoMPort, cl.Master)
@@ -71,6 +64,7 @@ func Run() {
 			ping := network.Message{nwMaster.LocalIP, cl.All, network.CreateID(cl.Master), cl.Ping, ""}
 			sendToMaster <- ping
 		case <-checkConnected.C:
+			removedElevator := false
 			for elevIP := range connectedElevators {
 				if connectedElevators[elevIP] == false {
 					if isActiveMaster {
@@ -79,7 +73,11 @@ func Run() {
 						sys.NotifyDisconnectionInactive(elevIP)
 					}
 					delete(connectedElevators, elevIP)
+					removedElevator = true
 				}
+			}
+			if removedElevator {
+				sys.SendLightCommands(slaveCommands)
 			}
 			masterIP := nwSlave.LocalIP
 			for elevIP := range connectedElevators {
@@ -94,16 +92,18 @@ func Run() {
 			switch message.Response {
 			case cl.Ping:
 				_, alreadyConnected := connectedElevators[message.Sender]
-				if isActiveMaster && !alreadyConnected {
-					backup := sys.CreateBackup()
-					backup.Receiver = message.Sender
-					sendToMaster <- backup
+				if !alreadyConnected {
+					merge := sys.CreateBackup()
+					for elevIP := range connectedElevators {
+						merge.Receiver = elevIP
+						sendToMaster <- merge
+					}
 				}
 				connectedElevators[message.Sender] = true
 			case cl.Backup:
-				sys.Print()
-				sys2 := scheduler.SystemFromBackup(message)
-				sys = scheduler.MergeSystems(sys, sys2)
+				receivedSys := scheduler.SystemFromBackup(message)
+				sys = scheduler.MergeSystems(sys, receivedSys)
+				sys.SendLightCommands(slaveCommands)
 			}
 		}
 	}
