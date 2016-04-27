@@ -71,13 +71,13 @@ func MergeSystems(sys1 *System, sys2 *System) *System {
 	return &s
 }
 
-func (sys *System) CreateBackup() network.Message {
+func (sys *System) ToMessage() network.Message {
 	backup := network.Message{network.LocalIP(), "",
 		network.CreateID(cl.Master), cl.Backup, *sys}
 	return backup
 }
 
-func SystemFromBackup(message network.Message) *System {
+func SystemFromMessage(message network.Message) *System {
 	s := NewSystem()
 	for key, val := range message.Content.(map[string]interface{}) {
 		switch val.(type) {
