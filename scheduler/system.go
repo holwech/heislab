@@ -164,7 +164,7 @@ func SystemFromMessage(message network.Message) *System {
 func (sys *System) AddElevator(elevatorIP string) bool {
 	_, exists := sys.Elevators[elevatorIP]
 	if !exists {
-		sys.Elevators[elevatorIP] = ElevatorState{}
+		sys.Elevators[elevatorIP] = ElevatorState{Direction: 1}
 	}
 	return !exists
 }

@@ -68,9 +68,9 @@ func (sys *System) NotifyEngineFail(elevatorIP string) {
 			} else {
 				elevator.InnerOrders[elevator.Floor-1] = true
 			}
-			sys.SetBehaviour(elevatorIP, EngineFailure)
+			sys.Elevators[elevatorIP] = elevator
 		}
-		sys.Elevators[elevatorIP] = elevator
+		sys.SetBehaviour(elevatorIP, EngineFailure)
 	}
 }
 
