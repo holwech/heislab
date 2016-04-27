@@ -99,8 +99,10 @@ func Run() {
 				if !alreadyConnected {
 					merge := sys.ToMessage()
 					for elevatorIP := range connectedElevators {
-						merge.Receiver = elevatorIP
-						sendToMasters <- merge
+						if elevatorIP != nwMaster.LocalIP {
+							merge.Receiver = elevatorIP
+							sendToMasters <- merge
+						}
 					}
 				}
 				connectedElevators[message.Sender] = true

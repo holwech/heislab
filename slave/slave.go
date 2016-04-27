@@ -58,7 +58,7 @@ func Run() {
 			}
 		case <-sl.DoorTimer.C:
 			driver.SetDoorLamp(0)
-			network.Send(sl.MasterID, cl.Slave, cl.DoorClosed, cl.Slave, send)
+			network.Send(sl.MasterID, cl.Slave, cl.DoorClosed, "", send)
 		case message := <-receive:
 			handleInput(sl, nw, message, send)
 		case <-sl.MotorTimer.C:
