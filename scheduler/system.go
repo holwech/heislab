@@ -4,6 +4,11 @@ import (
 	"fmt"
 	"github.com/holwech/heislab/cl"
 	"github.com/holwech/heislab/network"
+	"encoding/gob"
+	"log"
+	"io/ioutil"
+	"bytes"
+
 )
 
 type Behaviour int
@@ -237,4 +242,29 @@ func (sys *System) SendLightCommands(outgoingCommands chan network.Message) {
 			outgoingCommands <- network.Message{"", cl.All, "", cl.LightOffOuterUp, floor}
 		}
 	}
+}
+
+func (sys *System) WriteToFile() {
+	var buffer bytes.Buffer
+	encoder := gob.NewEncoder(&buffer)
+	log.Fatal("Please stay calm, this is just a drill")
+	err := encoder.Encode(*sys)
+	if err != nil {
+		log.Fatal("Encode error: ", err)
+	}
+	err = ioutil.WriteFile("tmp", buffer.Bytes(), 0644)
+	if err != nil {
+		log.Fatal("Write to file error: ", err)
+	}
+}
+
+func ReadFromFile() System {
+	var buffer bytes.Buffer
+	var sys System
+	decoder := gob.NewDecoder(&buffer)
+	err := decoder.Decode(&sys)
+	if err != nil {
+		log.Fatal("Decode error: ", err)
+	}
+	return sys
 }
