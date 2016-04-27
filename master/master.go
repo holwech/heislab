@@ -27,7 +27,6 @@ func Run() {
 	connectedElevators := make(map[string]bool)
 	connectedElevators[nwMaster.LocalIP] = true
 	sys.AddElevator(nwMaster.LocalIP)
-	updatedConnected := false
 
 	for {
 		select {
@@ -54,8 +53,6 @@ func Run() {
 				switch message.Content {
 				case cl.EngineFail:
 					sys.NotifyEngineFail(message.Sender)
-				case cl.EngineOK:
-					sys.NotifyEngineOk(message.Sender)
 				}
 			}
 			sys.AssignOuterOrders()
@@ -79,18 +76,8 @@ func Run() {
 						sys.NotifyDisconnectionInactive(elevatorIP)
 					}
 					delete(connectedElevators, elevatorIP)
-					updatedConnected = true
 				}
 			}
-			if updatedConnected && isActiveMaster {
-				sys.SendLightCommands(slaveCommands)
-				merge := sys.ToMessage()
-				for elevatorIP := range sys.Elevators {
-					merge.Receiver = elevatorIP
-					sendToMasters <- merge
-				}
-			}
-			updatedConnected = false
 			//Select master as connected elevator with lowest IP
 			masterIP := nwSlave.LocalIP
 			for elevatorIP := range connectedElevators {
@@ -105,16 +92,17 @@ func Run() {
 			switch message.Response {
 			case cl.Ping:
 				_, alreadyConnected := connectedElevators[message.Sender]
-				if !alreadyConnected && isActiveMaster {
+				if !alreadyConnected {
 					merge := sys.ToMessage()
-					merge.Receiver = message.Sender
-					sendToMasters <- merge
+					for elevatorIP := range connectedElevators {
+						merge.Receiver = elevatorIP
+						sendToMasters <- merge
+					}
 				}
 				connectedElevators[message.Sender] = true
 			case cl.Backup:
 				receivedSys := scheduler.SystemFromMessage(message)
 				sys = scheduler.MergeSystems(sys, receivedSys)
-				updatedConnected = true
 			}
 		}
 	}

@@ -12,7 +12,7 @@ const (
 	Idle Behaviour = iota
 	Moving
 	DoorOpen
-	AwaitingCommand
+	EngineFailure
 )
 
 type ElevatorState struct {
@@ -22,7 +22,7 @@ type ElevatorState struct {
 	InnerOrders      [4]bool
 	OuterOrdersUp    [4]bool
 	OuterOrdersDown  [4]bool
-	EngineFail       bool
+	AwaitingCommand  bool
 }
 
 type System struct {
@@ -107,7 +107,7 @@ func SystemFromMessage(message network.Message) *System {
 							}
 						}
 					case bool:
-						elevTmp.EngineFail = (val2.(bool))
+						elevTmp.AwaitingCommand = (val2.(bool))
 					}
 				}
 				s.Elevators[elevIP] = elevTmp
@@ -196,8 +196,8 @@ func (sys *System) Print() {
 			fmt.Println(" Moving ")
 		case DoorOpen:
 			fmt.Println(" DoorOpen ")
-		case AwaitingCommand:
-			fmt.Println(" AwaitingCommand ")
+		case EngineFailure:
+			fmt.Println(" Engine Failure ")
 		}
 		fmt.Print("Inner orders: ", elevator.InnerOrders)
 		fmt.Print("  Outer up: ", elevator.OuterOrdersUp)

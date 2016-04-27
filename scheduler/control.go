@@ -16,8 +16,9 @@ func (sys *System) NotifyInnerOrder(elevatorIP string, floor int, outgoingComman
 		cmdLight := network.Message{"", elevatorIP, "", cl.LightOnInner, floor}
 		outgoingCommands <- cmdLight
 		if elevator.CurrentBehaviour == Idle {
-			sys.SetBehaviour(elevatorIP, AwaitingCommand)
+			elevator.AwaitingCommand = true
 		}
+		sys.Elevators[elevatorIP] = elevator
 	}
 }
 
@@ -51,13 +52,20 @@ func (sys *System) NotifyFloor(elevatorIP string, floor int, outgoingCommands ch
 				hasUpOrdersBelow = true
 			}
 		}
-		shouldStop := elevator.hasOrderAtFloor(floor)
-		if elevator.Direction == 1 && hasDownOrdersAbove {
-			shouldStop = false
-		} else if elevator.Direction == -1 && hasUpOrdersBelow {
-			shouldStop = false
+		shouldStop := false
+		if elevator.InnerOrders[floor] {
+			shouldStop = true
 		}
-		shouldStop = shouldStop || elevator.InnerOrders[floor]
+		if elevator.Direction == 1 && elevator.OuterOrdersUp[floor] {
+			shouldStop = true
+		} else if elevator.Direction == -1 && elevator.OuterOrdersDown[floor] {
+			shouldStop = true
+		}
+		if elevator.Direction == -1 && elevator.OuterOrdersUp[floor] && !hasUpOrdersBelow {
+			shouldStop = true
+		} else if elevator.Direction == 1 && elevator.OuterOrdersDown[floor] && !hasDownOrdersAbove {
+			shouldStop = true
+		}
 		if shouldStop {
 			sys.sendStopCommands(elevatorIP, outgoingCommands)
 			sys.ClearOrder(elevatorIP, floor)
@@ -70,17 +78,17 @@ func (sys *System) NotifyDoorClosed(elevatorIP string) {
 	elevator, inSystem := sys.Elevators[elevatorIP]
 	if inSystem {
 		if elevator.hasMoreOrders() {
-			sys.SetBehaviour(elevatorIP, AwaitingCommand)
+			elevator.AwaitingCommand = true
 		} else {
 			sys.SetBehaviour(elevatorIP, Idle)
 		}
+		sys.Elevators[elevatorIP] = elevator
 	}
 }
 
 func (sys *System) NotifyEngineFail(elevatorIP string) {
 	elevator, inSystem := sys.Elevators[elevatorIP]
 	if inSystem {
-		elevator.EngineFail = true
 		sys.UnassignOuterOrders(elevatorIP)
 		if !elevator.hasMoreOrders() {
 			if elevator.Direction == 1 {
@@ -88,16 +96,8 @@ func (sys *System) NotifyEngineFail(elevatorIP string) {
 			} else {
 				elevator.InnerOrders[elevator.Floor-1] = true
 			}
-			sys.SetBehaviour(elevatorIP, AwaitingCommand)
+			sys.SetBehaviour(elevatorIP, EngineFailure)
 		}
-		sys.Elevators[elevatorIP] = elevator
-	}
-}
-
-func (sys *System) NotifyEngineOk(elevatorIP string) {
-	elevator, inSystem := sys.Elevators[elevatorIP]
-	if inSystem {
-		elevator.EngineFail = false
 		sys.Elevators[elevatorIP] = elevator
 	}
 }
@@ -138,15 +138,12 @@ func (sys *System) AssignOuterOrders() {
 				}
 			}
 			if minCost < MAXCOST {
-				if minCostElev.CurrentBehaviour == Idle {
-					sys.SetBehaviour(minCostElevIP, AwaitingCommand)
-				}
 				minCostElev.OuterOrdersUp[floor] = true
-				sys.Elevators[minCostElevIP] = minCostElev
 				sys.UnhandledOrdersUp[floor] = false
 				if minCostElev.CurrentBehaviour == Idle {
-					sys.SetBehaviour(minCostElevIP, AwaitingCommand)
+					minCostElev.AwaitingCommand = true
 				}
+				sys.Elevators[minCostElevIP] = minCostElev
 			}
 		}
 		if sys.UnhandledOrdersDown[floor] {
@@ -164,15 +161,12 @@ func (sys *System) AssignOuterOrders() {
 				}
 			}
 			if minCost < MAXCOST {
-				if minCostElev.CurrentBehaviour == Idle {
-					sys.SetBehaviour(minCostElevIP, AwaitingCommand)
-				}
 				minCostElev.OuterOrdersDown[floor] = true
-				sys.Elevators[minCostElevIP] = minCostElev
 				sys.UnhandledOrdersDown[floor] = false
 				if minCostElev.CurrentBehaviour == Idle {
-					sys.SetBehaviour(minCostElevIP, AwaitingCommand)
+					minCostElev.AwaitingCommand = true
 				}
+				sys.Elevators[minCostElevIP] = minCostElev
 			}
 		}
 	}
@@ -180,112 +174,90 @@ func (sys *System) AssignOuterOrders() {
 
 func (sys *System) CommandConnectedElevators(outgoingCommands chan network.Message) {
 	for elevIP, elev := range sys.Elevators {
-		switch elev.CurrentBehaviour {
-		case Idle:
-		case Moving:
-		case DoorOpen:
-			if elev.hasOrderAtFloor(elev.Floor) {
-				sys.sendStopCommands(elevIP, outgoingCommands)
-				sys.ClearOrder(elevIP, elev.Floor)
-				sys.SetBehaviour(elevIP, DoorOpen)
-			}
-		case AwaitingCommand:
-			if elev.hasOrderAtFloor(elev.Floor) {
-				sys.sendStopCommands(elevIP, outgoingCommands)
-				sys.ClearOrder(elevIP, elev.Floor)
-				sys.SetBehaviour(elevIP, DoorOpen)
-			} else {
-				var command network.Message
-				command.Receiver = elevIP
-				if elev.Direction == 1 {
-					command.Response = cl.Down
-					sys.SetDirection(elevIP, -1)
-					for floor := elev.Floor + 1; floor < 4; floor++ {
-						if elev.hasOrderAtFloor(floor) {
-							command.Response = cl.Up
-							sys.SetDirection(elevIP, 1)
-						}
-					}
+		if elev.AwaitingCommand {
+			switch elev.CurrentBehaviour {
+			case Idle:
+				if elev.hasOrderAtFloor(elev.Floor) {
+					sys.sendStopCommands(elevIP, outgoingCommands)
+					sys.ClearOrder(elevIP, elev.Floor)
+					sys.SetBehaviour(elevIP, DoorOpen)
 				} else {
-					command.Response = cl.Up
-					sys.SetDirection(elevIP, 1)
-					for floor := 0; floor < elev.Floor; floor++ {
-						if elev.hasOrderAtFloor(floor) {
-							command.Response = cl.Down
-							sys.SetDirection(elevIP, -1)
+					var command network.Message
+					command.Receiver = elevIP
+					if elev.Direction == 1 {
+						command.Response = cl.Down
+						sys.SetDirection(elevIP, -1)
+						for floor := elev.Floor + 1; floor < 4; floor++ {
+							if elev.hasOrderAtFloor(floor) {
+								command.Response = cl.Up
+								sys.SetDirection(elevIP, 1)
+							}
+						}
+					} else {
+						command.Response = cl.Up
+						sys.SetDirection(elevIP, 1)
+						for floor := 0; floor < elev.Floor; floor++ {
+							if elev.hasOrderAtFloor(floor) {
+								command.Response = cl.Down
+								sys.SetDirection(elevIP, -1)
+							}
 						}
 					}
+					outgoingCommands <- command
+					sys.SetBehaviour(elevIP, Moving)
 				}
-				outgoingCommands <- command
-				sys.SetBehaviour(elevIP, Moving)
+			case Moving:
+			case DoorOpen:
+				if elev.hasOrderAtFloor(elev.Floor) {
+					sys.sendStopCommands(elevIP, outgoingCommands)
+					sys.ClearOrder(elevIP, elev.Floor)
+					sys.SetBehaviour(elevIP, DoorOpen)
+				} else {
+					var command network.Message
+					command.Receiver = elevIP
+					if elev.Direction == 1 {
+						command.Response = cl.Down
+						sys.SetDirection(elevIP, -1)
+						for floor := elev.Floor + 1; floor < 4; floor++ {
+							if elev.hasOrderAtFloor(floor) {
+								command.Response = cl.Up
+								sys.SetDirection(elevIP, 1)
+							}
+						}
+					} else {
+						command.Response = cl.Up
+						sys.SetDirection(elevIP, 1)
+						for floor := 0; floor < elev.Floor; floor++ {
+							if elev.hasOrderAtFloor(floor) {
+								command.Response = cl.Down
+								sys.SetDirection(elevIP, -1)
+							}
+						}
+					}
+					outgoingCommands <- command
+					sys.SetBehaviour(elevIP, Moving)
+				}
+			case EngineFailure:
 			}
 		}
 	}
 }
 
 func (elev *ElevatorState) costOfOuterOrder(floor, direction int) int {
-	if elev.EngineFail {
+	if elev.CurrentBehaviour == EngineFailure {
 		return MAXCOST
 	}
-	hasDownOrdersAbove := false
-	hasUpOrdersBelow := false
-	for floor := elev.Floor + 1; floor < 4; floor++ {
-		if elev.OuterOrdersDown[floor] {
-			hasDownOrdersAbove = true
+	if elev.CurrentBehaviour == Moving {
+		if (elev.Floor < floor && elev.Direction == 1) ||
+			(elev.Floor > floor && elev.Direction == -1) {
+			return 80 * intAbs(elev.Floor-floor)
 		}
 	}
-	for floor := 0; floor < elev.Floor; floor++ {
-		if elev.OuterOrdersUp[floor] {
-			hasUpOrdersBelow = true
-		}
-	}
-
-	switch elev.CurrentBehaviour {
-	case Idle:
+	if (elev.Floor <= floor && elev.Direction == 1) ||
+		(elev.Floor >= floor && elev.Direction == -1) {
 		return 100 * intAbs(elev.Floor-floor)
-	case Moving:
-		if elev.Direction == direction &&
-			((elev.Direction == 1 && elev.Floor < floor) ||
-				(elev.Direction == -1 && elev.Floor > floor)) {
-			return 10 * intAbs(elev.Floor-floor)
-		} else if elev.Floor < floor && elev.Direction == 1 && hasDownOrdersAbove {
-			return 9 * intAbs(elev.Floor-floor)
-		} else if elev.Floor > floor && elev.Direction == -1 && hasUpOrdersBelow {
-			return 9 * intAbs(elev.Floor-floor)
-		} else {
-			return MAXCOST
-		}
-	case DoorOpen:
-		if elev.hasMoreOrders() {
-			if elev.Direction == direction &&
-				((elev.Direction == 1 && elev.Floor < floor) ||
-					(elev.Direction == -1 && elev.Floor > floor)) {
-				return 15 * intAbs(elev.Floor-floor)
-			} else if elev.Floor < floor && elev.Direction == 1 && hasDownOrdersAbove {
-				return 9 * intAbs(elev.Floor-floor)
-			} else if elev.Floor > floor && elev.Direction == -1 && hasUpOrdersBelow {
-				return 9 * intAbs(elev.Floor-floor)
-			} else {
-				return MAXCOST
-			}
-		} else {
-			return 100 * intAbs(elev.Floor-floor)
-		}
-	case AwaitingCommand:
-		if elev.Direction == direction &&
-			((elev.Direction == 1 && elev.Floor < floor) ||
-				(elev.Direction == -1 && elev.Floor > floor)) {
-			return 12 * intAbs(elev.Floor-floor)
-		} else if elev.Floor < floor && elev.Direction == 1 && hasDownOrdersAbove {
-			return 9 * intAbs(elev.Floor-floor)
-		} else if elev.Floor > floor && elev.Direction == -1 && hasUpOrdersBelow {
-			return 9 * intAbs(elev.Floor-floor)
-		} else {
-			return MAXCOST
-		}
-	default:
-		return MAXCOST
 	}
+	return MAXCOST
 }
 
 func (sys *System) sendStopCommands(elevIP string, outgoingCommands chan network.Message) {
