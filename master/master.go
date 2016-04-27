@@ -14,22 +14,24 @@ func InitMaster() {
 
 func Run() {
 	nwSlave, _ := network.InitNetwork(cl.MReadPort, cl.MWritePort, cl.Master)
-	recvFromSlave, sendToSlave := nwSlave.Channels()
+	recvFromSlaves, sendToSlaves := nwSlave.Channels()
 	nwMaster, _ := network.InitNetwork(cl.MtoMPort, cl.MtoMPort, cl.Master)
-	recvFromMaster, sendToMaster := nwMaster.Channels()
+	recvFromMasters, sendToMasters := nwMaster.Channels()
 
 	sys := scheduler.NewSystem()
 	slaveCommands := make(chan network.Message, 100)
-	isActiveMaster := false
+	isActiveMaster := true
 
-	pinger := time.NewTicker(100 * time.Millisecond)
+	pingAlive := time.NewTicker(75 * time.Millisecond)
 	checkConnected := time.NewTicker(300 * time.Millisecond)
 	connectedElevators := make(map[string]bool)
 	connectedElevators[nwMaster.LocalIP] = true
 	sys.AddElevator(nwMaster.LocalIP)
+	updatedConnected := false
+
 	for {
 		select {
-		case message := <-recvFromSlave:
+		case message := <-recvFromSlaves:
 			switch message.Response {
 			case cl.InnerOrder:
 				content := message.Content.(map[string]interface{})
@@ -63,52 +65,56 @@ func Run() {
 			if isActiveMaster {
 				command.Sender = nwSlave.LocalIP
 				command.ID = network.CreateID(cl.Master)
-				sendToSlave <- command
+				sendToSlaves <- command
 			}
-		case <-pinger.C:
+		case <-pingAlive.C:
 			ping := network.Message{nwMaster.LocalIP, cl.All, network.CreateID(cl.Master), cl.Ping, ""}
-			sendToMaster <- ping
+			sendToMasters <- ping
 		case <-checkConnected.C:
-			removedElevator := false
-			for elevIP := range connectedElevators {
-				if connectedElevators[elevIP] == false {
+			for elevatorIP := range connectedElevators {
+				if connectedElevators[elevatorIP] == false {
 					if isActiveMaster {
-						sys.NotifyDisconnectionActive(elevIP)
+						sys.NotifyDisconnectionActive(elevatorIP)
 					} else {
-						sys.NotifyDisconnectionInactive(elevIP)
+						sys.NotifyDisconnectionInactive(elevatorIP)
 					}
-					delete(connectedElevators, elevIP)
-					removedElevator = true
+					delete(connectedElevators, elevatorIP)
+					updatedConnected = true
 				}
 			}
-			if removedElevator {
+			if updatedConnected && isActiveMaster {
 				sys.SendLightCommands(slaveCommands)
-			}
-			masterIP := nwSlave.LocalIP
-			for elevIP := range connectedElevators {
-				if elevIP < masterIP {
-					masterIP = elevIP
+				merge := sys.ToMessage()
+				for elevatorIP := range sys.Elevators {
+					merge.Receiver = elevatorIP
+					sendToMasters <- merge
 				}
-				connectedElevators[elevIP] = false
+			}
+			updatedConnected = false
+			//Select master as connected elevator with lowest IP
+			masterIP := nwSlave.LocalIP
+			for elevatorIP := range connectedElevators {
+				if elevatorIP < masterIP {
+					masterIP = elevatorIP
+				}
+				connectedElevators[elevatorIP] = false
 			}
 			isActiveMaster = (masterIP == nwMaster.LocalIP)
 			connectedElevators[nwMaster.LocalIP] = true
-		case message := <-recvFromMaster:
+		case message := <-recvFromMasters:
 			switch message.Response {
 			case cl.Ping:
 				_, alreadyConnected := connectedElevators[message.Sender]
-				if !alreadyConnected {
-					merge := sys.CreateBackup()
-					for elevIP := range connectedElevators {
-						merge.Receiver = elevIP
-						sendToMaster <- merge
-					}
+				if !alreadyConnected && isActiveMaster {
+					merge := sys.ToMessage()
+					merge.Receiver = message.Sender
+					sendToMasters <- merge
 				}
 				connectedElevators[message.Sender] = true
 			case cl.Backup:
-				receivedSys := scheduler.SystemFromBackup(message)
+				receivedSys := scheduler.SystemFromMessage(message)
 				sys = scheduler.MergeSystems(sys, receivedSys)
-				sys.SendLightCommands(slaveCommands)
+				updatedConnected = true
 			}
 		}
 	}
