@@ -96,7 +96,9 @@ func Run() {
 			switch message.Response {
 			case cl.Ping:
 				_, alreadyConnected := connectedElevators[message.Sender]
+				connectedElevators[message.Sender] = true
 				if !alreadyConnected {
+					fmt.Println(connectedElevators)
 					merge := sys.ToMessage()
 					for elevatorIP := range connectedElevators {
 						if elevatorIP != nwMaster.LocalIP {
@@ -105,7 +107,7 @@ func Run() {
 						}
 					}
 				}
-				connectedElevators[message.Sender] = true
+
 			case cl.Backup:
 				receivedSys := scheduler.SystemFromMessage(message)
 				sys = scheduler.MergeSystems(sys, receivedSys)
