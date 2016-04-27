@@ -1,14 +1,13 @@
 package scheduler
 
 import (
+	"bytes"
+	"encoding/gob"
 	"fmt"
 	"github.com/holwech/heislab/cl"
 	"github.com/holwech/heislab/network"
-	"encoding/gob"
-	"log"
 	"io/ioutil"
-	"bytes"
-
+	"log"
 )
 
 type Behaviour int

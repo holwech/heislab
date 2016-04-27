@@ -16,7 +16,7 @@ func (sys *System) NotifyInnerOrder(elevatorIP string, floor int, outgoingComman
 		sys.Elevators[elevatorIP] = elevator
 		cmdLight := network.Message{"", elevatorIP, "", cl.LightOnInner, floor}
 		outgoingCommands <- cmdLight
-		if elevator.CurrentBehaviour == Idle {
+		if (elevator.CurrentBehaviour == Idle || elevator.CurrentBehaviour == DoorOpen) && elevator.Floor != floor {
 			elevator.AwaitingCommand = true
 		}
 		sys.Elevators[elevatorIP] = elevator
@@ -216,6 +216,9 @@ func (sys *System) CommandConnectedElevators(outgoingCommands chan network.Messa
 func (elev *ElevatorState) costOfOuterOrder(floor, direction int) int {
 	if elev.CurrentBehaviour == EngineFailure {
 		return MAXCOST
+	}
+	if elev.CurrentBehaviour == Idle {
+		return 70 * intAbs(elev.Floor-floor)
 	}
 	if elev.CurrentBehaviour == Moving {
 		if (elev.Floor < floor && elev.Direction == 1) ||
