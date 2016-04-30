@@ -9,7 +9,6 @@ import (
 
 const info = true
 const conn = false
-const printAll = false
 
 type Message struct {
 	Sender, Receiver, ID, Response string
@@ -34,24 +33,19 @@ func (nw *Network) Channels() (<-chan Message, chan<- Message) {
 	return nw.Receive, nw.Send
 }
 
-func InitNetwork(readPort string, writePort string, senderType string) (*Network, *MsgQueue) {
+func InitNetwork(readPort string, writePort string, senderType string) *Network {
 	nw := new(Network)
 	nw.Init(readPort, writePort, senderType)
-	ol := new(MsgQueue)
 	commReceive, commSend := communication.Init(nw.ReadPort, nw.WritePort)
 	go receiver(nw, commReceive)
 	go sender(nw, commSend)
-	return nw, ol
+	return nw
 }
 
 func sender(nw *Network, commSend chan<- communication.CommData) {
 	for {
 		message := <-nw.Send
 		commMsg := *communication.ResolveMsg(nw.LocalIP, message.Receiver, message.ID, message.Response, message.Content)
-		if commMsg.Response != cl.Ping {
-			fmt.Println("=== " + nw.SenderType + " sent message ===")
-			communication.PrintMessage(commMsg)
-		}
 		commSend <- commMsg
 	}
 }
@@ -61,9 +55,6 @@ func receiver(nw *Network, commReceive <-chan communication.CommData) {
 		message := <-commReceive
 		convMsg := commToMsg(&message)
 		assertMsg(&convMsg)
-		if printAll && convMsg.Response != cl.Ping {
-			PrintMessage(&convMsg)
-		}
 		if nw.SenderType == cl.Slave {
 			if convMsg.Response != cl.Connection && convMsg.ID[0] == 'M' &&
 				(convMsg.Receiver == nw.LocalIP || convMsg.Receiver == cl.All) ||
@@ -85,17 +76,19 @@ func receiver(nw *Network, commReceive <-chan communication.CommData) {
 
 func printInfo(comment string, message *Message) {
 	if ((info && message.Response != cl.Connection) || conn) && message.Response != cl.Ping {
-		fmt.Println("NETW: " + comment)
-		PrintMessage(message)
+		PrintMessage(message, comment)
 	}
 }
 
-func PrintMessage(message *Message) {
+func PrintMessage(message *Message, comment string) {
+	fmt.Println("__________________________________")
+	fmt.Println("NETW: " + comment)
 	fmt.Printf("NETW: Sender: %s\n", message.Sender)
 	fmt.Printf("NETW: Receiver: %s\n", message.Receiver)
 	fmt.Printf("NETW: ID: %s\n", message.ID)
 	fmt.Printf("NETW: Response: %s\n", message.Response)
 	fmt.Printf("NETW: Content: %v\n", message.Content)
+	fmt.Println("__________________________________")
 }
 
 func printError(errMsg string, err error) {

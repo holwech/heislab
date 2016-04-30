@@ -1,12 +1,9 @@
 package scheduler
 
 import (
-	"github.com/holwech/heislab/cl"
-	"github.com/holwech/heislab/network"
 	"testing"
-	"time"
 )
-
+/*
 func TestBackupOverNetwork(t *testing.T) {
 	nw_M := network.InitNetwork(cl.MReadPort, cl.MWritePort, cl.Master)
 	nw_S := network.InitNetwork(cl.SReadPort, cl.SWritePort, cl.Slave)
@@ -28,4 +25,16 @@ func TestBackupOverNetwork(t *testing.T) {
 
 	sys2 := SystemFromBackup(<-receive_M)
 	sys2.Print()
+}*/
+
+func TestWriteToFile(t *testing.T) {
+	sys := System{
+		UnhandledOrdersUp: [4]bool{false, true, false, true},
+	}
+	sys.WriteToFile()
+}
+
+func TestReadFromFile(t *testing.T) {
+	sys := ReadFromFile()
+	sys.Print()
 }

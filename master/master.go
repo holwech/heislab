@@ -8,12 +8,7 @@ import (
 	"time"
 )
 
-//REmove pls
-func InitMaster() {
-	go Run()
-}
-
-func Run() {
+func Run(backup bool) {
 	fmt.Println("fmt")
 
 	nwSlave, _ := network.InitNetwork(cl.MReadPort, cl.MWritePort, cl.Master)

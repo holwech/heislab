@@ -7,7 +7,6 @@ import (
 	"github.com/holwech/heislab/cl"
 	"github.com/holwech/heislab/network"
 	"io/ioutil"
-	"log"
 )
 
 type Behaviour int
@@ -31,8 +30,8 @@ type ElevatorState struct {
 
 type System struct {
 	Elevators           map[string]ElevatorState
-	UnhandledOrdersUp   [4]bool
-	UnhandledOrdersDown [4]bool
+	UnhandledOrdersUp   [cl.Floors]bool
+	UnhandledOrdersDown [cl.Floors]bool
 }
 
 func (elev *ElevatorState) hasOrderAtFloor(floor int) bool {
@@ -45,7 +44,7 @@ func (elev *ElevatorState) hasOrderAtFloor(floor int) bool {
 }
 
 func (elev *ElevatorState) hasMoreOrders() bool {
-	for floor := 0; floor < 4; floor++ {
+	for floor := 0; floor < cl.Floors; floor++ {
 		if elev.hasOrderAtFloor(floor) {
 			return true
 		}
@@ -99,7 +98,7 @@ func MergeSystems(sys1 *System, sys2 *System) *System {
 	for elevIP, elev := range sys2.Elevators {
 		s.Elevators[elevIP] = elev
 	}
-	for floor := 0; floor < 4; floor++ {
+	for floor := 0; floor < cl.Floors; floor++ {
 		s.UnhandledOrdersDown[floor] = sys1.UnhandledOrdersDown[floor] || sys2.UnhandledOrdersDown[floor]
 		s.UnhandledOrdersUp[floor] = sys1.UnhandledOrdersUp[floor] || sys2.UnhandledOrdersUp[floor]
 	}
@@ -190,7 +189,7 @@ func (sys *System) ClearOrder(elevatorIP string, floor int) {
 func (sys *System) UnassignOuterOrders(elevatorIP string) {
 	elevator, inSystem := sys.Elevators[elevatorIP]
 	if inSystem {
-		for floor := 0; floor < 4; floor++ {
+		for floor := 0; floor < cl.Floors; floor++ {
 			if elevator.OuterOrdersUp[floor] {
 				sys.UnhandledOrdersUp[floor] = true
 				elevator.OuterOrdersUp[floor] = false
@@ -245,7 +244,7 @@ func (sys *System) Print() {
 }
 
 func (sys *System) SendLightCommands(outgoingCommands chan network.Message) {
-	for floor := 0; floor < 4; floor++ {
+	for floor := 0; floor < cl.Floors; floor++ {
 		assignedUp := false
 		assignedDown := false
 		for elevIP, elev := range sys.Elevators {
@@ -277,24 +276,28 @@ func (sys *System) SendLightCommands(outgoingCommands chan network.Message) {
 func (sys *System) WriteToFile() {
 	var buffer bytes.Buffer
 	encoder := gob.NewEncoder(&buffer)
-	log.Fatal("Please stay calm, this is just a drill")
 	err := encoder.Encode(*sys)
-	if err != nil {
-		log.Fatal("Encode error: ", err)
-	}
+	printError("Encode error: ", err)
 	err = ioutil.WriteFile("tmp", buffer.Bytes(), 0644)
-	if err != nil {
-		log.Fatal("Write to file error: ", err)
-	}
+	printError("WriteFile error: ", err)
+	fmt.Println("Buffer data: ", buffer.String())
 }
 
 func ReadFromFile() System {
-	var buffer bytes.Buffer
 	var sys System
-	decoder := gob.NewDecoder(&buffer)
-	err := decoder.Decode(&sys)
-	if err != nil {
-		log.Fatal("Decode error: ", err)
-	}
+	file, err := ioutil.ReadFile("tmp")
+	printError("ReadFile error: ", err)
+	buffer := bytes.NewBuffer(file)
+	fmt.Println("Buffer data: ", buffer.String())
+	decoder := gob.NewDecoder(buffer)
+	err = decoder.Decode(&sys)
+	printError("Decode error: ", err)
 	return sys
+}
+
+func printError(comment string, err error) {
+	if err != nil {
+		fmt.Println(comment, err)
+		fmt.Println(err.Error())
+	}
 }
