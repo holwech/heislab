@@ -69,18 +69,12 @@ func receiver(nw *Network, commReceive <-chan communication.CommData) {
 		message := <-commReceive
 		convMsg := commToMsg(&message)
 		assertMsg(&convMsg)
-		if nw.SenderType == cl.Slave {
-			if convMsg.Response != cl.Connection && convMsg.ID[0] == 'M' &&
-				(convMsg.Receiver == nw.LocalIP || convMsg.Receiver == cl.All) ||
-				(convMsg.Response == cl.Connection && convMsg.ID[0] == 'S') {
+		if message.Receiver == nw.LocalIP || message.Receiver == cl.All {
+			if nw.SenderType == cl.Slave {
 				nw.Receive <- convMsg
 				printInfo(&convMsg, "Slave received message")
 			}
-		}
-		if nw.SenderType == cl.Master {
-			if ((convMsg.ID[0] == 'S') && (convMsg.Response != cl.Connection)) ||
-				((convMsg.ID[0] == 'M') && (convMsg.Response != cl.Connection) && convMsg.Receiver != nw.LocalIP) ||
-				((convMsg.ID[0] == 'M') && (convMsg.Response == cl.Connection) && (convMsg.Receiver == nw.LocalIP)) {
+			if nw.SenderType == cl.Master {
 				nw.Receive <- convMsg
 				printInfo(&convMsg, "Master received message")
 			}
