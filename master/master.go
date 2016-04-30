@@ -14,17 +14,16 @@ func Run(fromBackup bool) {
 	recvFromMasters := nwMaster.Channels()
 	slaveCommands := make(chan network.Message, 100)
 
-	var sys scheduler.System
+	sys := scheduler.NewSystem()
 	if fromBackup{
 		sys := scheduler.ReadFromFile()
 		elevator := sys.Elevators[nwMaster.LocalIP]
-		elevator.CurrentBehaviour = Idle
+		elevator.CurrentBehaviour = scheduler.Idle
 		if elevator.HasMoreOrders(){
 			elevator.AwaitingCommand = true
 		}
-		sys[nwMaster.LocalIP] = elevator
+		sys.Elevators[nwMaster.LocalIP] = elevator
 	} else{
-		sys := scheduler.NewSystem()
 		sys.AddElevator(nwMaster.LocalIP)	
 	}
 
@@ -79,7 +78,10 @@ func Run(fromBackup bool) {
 						sys.NotifyDisconnectionInactive(elevatorIP)
 					}
 					delete(connectedElevators, elevatorIP)
-					sys.CommandConnectedElevators(slaveCommands)
+					commands := sys.CommandConnectedElevators()
+					for command := range commands{
+						slaveCommands <- command
+					}
 					go sys.WriteToFile()
 				}
 			}
@@ -105,7 +107,6 @@ func Run(fromBackup bool) {
 						nwMaster.SendMessage(merge)
 					}
 				}
-
 			case cl.Backup:
 				receivedSys := scheduler.SystemFromMessage(message)
 				sys = scheduler.MergeSystems(sys, receivedSys)
