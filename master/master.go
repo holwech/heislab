@@ -68,6 +68,7 @@ func Run(backup bool) {
 					} else {
 						sys.NotifyDisconnectionInactive(elevatorIP)
 					}
+					fmt.Println(elevatorIP, " disconnected")
 					delete(connectedElevators, elevatorIP)
 				}
 			}
