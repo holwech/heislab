@@ -128,9 +128,9 @@ func assertMsg(message *Message) {
 	}
 }
 
-func Send(masterID string, senderType string, response string, content interface{}, send chan<- Message) {
+func Send(receiver string, senderType string, response string, content interface{}, send chan<- Message) {
 	message := Message{
-		Receiver: masterID,
+		Receiver: receiver,
 		ID:       CreateID(senderType),
 		Response: response,
 		Content:  content,
