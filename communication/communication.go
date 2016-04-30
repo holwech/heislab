@@ -3,6 +3,7 @@ package communication
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/holwech/heislab/cl"
 	"net"
 )
 
@@ -15,8 +16,8 @@ type CommData struct {
 }
 
 func Init(readPort string, writePort string) (<-chan CommData, chan<- CommData) {
-	receive := make(chan CommData, 10)
-	send := make(chan CommData, 10)
+	receive := make(chan CommData, 10*cl.Floors)
+	send := make(chan CommData, 10*cl.Floors)
 	localIP := GetLocalIP()
 	go listen(receive, readPort)
 	go broadcast(send, localIP, writePort)
