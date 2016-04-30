@@ -280,7 +280,7 @@ func (sys *System) WriteToFile() {
 	printError("Encode error: ", err)
 	err = ioutil.WriteFile("tmp", buffer.Bytes(), 0644)
 	printError("WriteFile error: ", err)
-	fmt.Println("Buffer data: ", buffer.String())
+	fmt.Println("BACKUP: Backup stored")
 }
 
 func ReadFromFile() *System {
@@ -288,7 +288,7 @@ func ReadFromFile() *System {
 	file, err := ioutil.ReadFile("tmp")
 	printError("ReadFile error: ", err)
 	buffer := bytes.NewBuffer(file)
-	fmt.Println("Buffer data: ", buffer.String())
+	fmt.Println("BACKUP: Reading from file...")
 	decoder := gob.NewDecoder(buffer)
 	err = decoder.Decode(&sys)
 	printError("Decode error: ", err)

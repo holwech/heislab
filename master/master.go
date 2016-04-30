@@ -1,6 +1,7 @@
 package master
 
 import (
+	"fmt"
 	"github.com/holwech/heislab/cl"
 	"github.com/holwech/heislab/network"
 	"github.com/holwech/heislab/scheduler"
