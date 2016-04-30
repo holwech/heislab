@@ -22,9 +22,9 @@ type ElevatorState struct {
 	Floor            int
 	Direction        int
 	CurrentBehaviour Behaviour
-	InnerOrders      [4]bool
-	OuterOrdersUp    [4]bool
-	OuterOrdersDown  [4]bool
+	InnerOrders      [cl.Floors]bool
+	OuterOrdersUp    [cl.Floors]bool
+	OuterOrdersDown  [cl.Floors]bool
 	AwaitingCommand  bool
 }
 
@@ -55,7 +55,7 @@ func (elev *ElevatorState) hasMoreOrders() bool {
 func (elev *ElevatorState) shouldStop(floor int) bool {
 	hasDownOrdersAbove := false
 	hasUpOrdersBelow := false
-	for f := elev.Floor + 1; f < 4; f++ {
+	for f := elev.Floor + 1; f < cl.Floors; f++ {
 		if elev.OuterOrdersDown[f] {
 			hasDownOrdersAbove = true
 		}
