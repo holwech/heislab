@@ -12,20 +12,27 @@ func Run(fromBackup bool) {
 	nwMaster := network.InitNetwork(cl.MtoMPort, cl.MtoMPort, cl.Master)
 	recvFromSlaves := nwSlave.Channels()
 	recvFromMasters := nwMaster.Channels()
+	slaveCommands := make(chan network.Message, 100)
 
-	sys := scheduler.NewSystem()
+	var sys scheduler.System
 	if fromBackup{
 		sys := scheduler.ReadFromFile()
+		elevator := sys.Elevators[nwMaster.LocalIP]
+		elevator.CurrentBehaviour = Idle
+		if elevator.HasMoreOrders(){
+			elevator.AwaitingCommand = true
+		}
+		sys[nwMaster.LocalIP] = elevator
+	} else{
+		sys := scheduler.NewSystem()
+		sys.AddElevator(nwMaster.LocalIP)	
 	}
-	sys.AddElevator(nwMaster.LocalIP)
 
-
-	slaveCommands := make(chan network.Message, 100)
-	isActiveMaster := true
-	pingAlive := time.NewTicker(75 * time.Millisecond)
 	connectedElevators := make(map[string]bool)
 	connectedElevators[nwMaster.LocalIP] = true
+	pingAlive := time.NewTicker(75 * time.Millisecond)
 	checkConnected := time.NewTicker(300 * time.Millisecond)
+	isActiveMaster := true
 
 	for {
 		select {
@@ -34,24 +41,29 @@ func Run(fromBackup bool) {
 			case cl.InnerOrder:
 				content := message.Content.(map[string]interface{})
 				floor := content["Floor"].(int)
-				sys.NotifyInnerOrder(message.Sender, floor, slaveCommands)
+				command := sys.NotifyInnerOrder(message.Sender, floor)
+				slaveCommands <- <-command
 			case cl.OuterOrder:
 				content := message.Content.(map[string]interface{})
 				floor := content["Floor"].(int)
 				direction := content["Direction"].(int)
-				sys.NotifyOuterOrder(floor, direction, slaveCommands)
+				command := sys.NotifyOuterOrder(floor, direction)
+				slaveCommands <- <- command
 			case cl.Floor:
 				floor := message.Content.(int)
-				sys.NotifyFloor(message.Sender, floor, slaveCommands)
+				sys.NotifyFloor(message.Sender, floor)
 			case cl.DoorClosed:
 				sys.NotifyDoorClosed(message.Sender)
 			case cl.EngineFail:
 				sys.NotifyEngineFail(message.Sender)
 			}
 			sys.AssignOuterOrders()
-			sys.CommandConnectedElevators(slaveCommands)
+			commands := sys.CommandConnectedElevators()
+			for command := range commands{
+				slaveCommands <- command
+			}
 			sys.Print()
-			sys.WriteToFile()
+			go sys.WriteToFile()
 		case command := <-slaveCommands:
 			if isActiveMaster {
 				nwSlave.Send(command.Receiver, cl.Master, command.Response, command.Content)
@@ -67,6 +79,8 @@ func Run(fromBackup bool) {
 						sys.NotifyDisconnectionInactive(elevatorIP)
 					}
 					delete(connectedElevators, elevatorIP)
+					sys.CommandConnectedElevators(slaveCommands)
+					go sys.WriteToFile()
 				}
 			}
 			//Select master as connected elevator with lowest IP

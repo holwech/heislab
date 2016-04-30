@@ -43,7 +43,7 @@ func (elev *ElevatorState) hasOrderAtFloor(floor int) bool {
 	return false
 }
 
-func (elev *ElevatorState) hasMoreOrders() bool {
+func (elev *ElevatorState) HasMoreOrders() bool {
 	for floor := 0; floor < cl.Floors; floor++ {
 		if elev.hasOrderAtFloor(floor) {
 			return true
