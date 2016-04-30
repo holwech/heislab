@@ -7,9 +7,10 @@ import (
 
 const MAXCOST int = 100000
 
-func (sys *System) NotifyInnerOrder(elevatorIP string, floor int, outgoingCommands chan network.Message) {
+func (sys *System) NotifyInnerOrder(elevatorIP string, floor int) chan network.Message {
+	outgoingCommands := make(chan network.Message, 1)
+	defer close(outgoingCommands)
 	elevator, inSystem := sys.Elevators[elevatorIP]
-
 	if inSystem {
 		elevator.InnerOrders[floor] = true
 		sys.Elevators[elevatorIP] = elevator
@@ -20,9 +21,12 @@ func (sys *System) NotifyInnerOrder(elevatorIP string, floor int, outgoingComman
 		}
 		sys.Elevators[elevatorIP] = elevator
 	}
+	return outgoingCommands
 }
 
-func (sys *System) NotifyOuterOrder(floor, direction int, outgoingCommands chan network.Message) {
+func (sys *System) NotifyOuterOrder(floor, direction int) chan network.Message {
+	outgoingCommands := make(chan network.Message, 1)
+	defer close(outgoingCommands)
 	if direction == -1 {
 		sys.UnhandledOrdersDown[floor] = true
 		cmdLight := network.Message{"", cl.All, "", cl.LightOnOuterDown, floor}
@@ -32,9 +36,10 @@ func (sys *System) NotifyOuterOrder(floor, direction int, outgoingCommands chan 
 		cmdLight := network.Message{"", cl.All, "", cl.LightOnOuterUp, floor}
 		outgoingCommands <- cmdLight
 	}
+	return outgoingCommands
 }
 
-func (sys *System) NotifyFloor(elevatorIP string, floor int, outgoingCommands chan network.Message) {
+func (sys *System) NotifyFloor(elevatorIP string, floor int) {
 	elevator, inSystem := sys.Elevators[elevatorIP]
 	if inSystem && floor != -1 {
 		elevator.Floor = floor
@@ -49,7 +54,7 @@ func (sys *System) NotifyFloor(elevatorIP string, floor int, outgoingCommands ch
 func (sys *System) NotifyDoorClosed(elevatorIP string) {
 	elevator, inSystem := sys.Elevators[elevatorIP]
 	if inSystem {
-		if elevator.hasMoreOrders() {
+		if elevator.HasMoreOrders() {
 			elevator.AwaitingCommand = true
 			sys.Elevators[elevatorIP] = elevator
 		} else {
@@ -62,7 +67,7 @@ func (sys *System) NotifyEngineFail(elevatorIP string) {
 	elevator, inSystem := sys.Elevators[elevatorIP]
 	if inSystem {
 		sys.UnassignOuterOrders(elevatorIP)
-		if !elevator.hasMoreOrders() {
+		if !elevator.HasMoreOrders() {
 			if elevator.Direction == 1 {
 				elevator.InnerOrders[elevator.Floor+1] = true
 			} else {
@@ -144,13 +149,15 @@ func (sys *System) AssignOuterOrders() {
 	}
 }
 
-func (sys *System) CommandConnectedElevators(outgoingCommands chan network.Message) {
+func (sys *System) CommandConnectedElevators() chan network.Message {
+	outgoingCommands := make(chan network.Message, 100)
+	defer close(outgoingCommands)
 	for elevatorIP, elevator := range sys.Elevators {
 		if elevator.AwaitingCommand {
 			elevator.AwaitingCommand = false
 			sys.Elevators[elevatorIP] = elevator
 			if elevator.shouldStop(elevator.Floor) {
-				sys.sendStopCommands(elevatorIP, outgoingCommands)
+				sys.generateStopCommands(elevatorIP, outgoingCommands)
 				sys.ClearOrder(elevatorIP, elevator.Floor)
 				sys.SetBehaviour(elevatorIP, DoorOpen)
 			} else if elevator.CurrentBehaviour == Idle || elevator.CurrentBehaviour == DoorOpen {
@@ -180,6 +187,7 @@ func (sys *System) CommandConnectedElevators(outgoingCommands chan network.Messa
 			}
 		}
 	}
+	return outgoingCommands
 }
 
 func (elev *ElevatorState) costOfOuterOrder(floor, direction int) int {
@@ -202,7 +210,7 @@ func (elev *ElevatorState) costOfOuterOrder(floor, direction int) int {
 	return MAXCOST
 }
 
-func (sys *System) sendStopCommands(elevIP string, outgoingCommands chan network.Message) {
+func (sys *System) generateStopCommands(elevIP string, outgoingCommands chan network.Message) {
 	elevator := sys.Elevators[elevIP]
 	var command network.Message
 

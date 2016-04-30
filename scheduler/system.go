@@ -43,7 +43,7 @@ func (elev *ElevatorState) hasOrderAtFloor(floor int) bool {
 	return false
 }
 
-func (elev *ElevatorState) hasMoreOrders() bool {
+func (elev *ElevatorState) HasMoreOrders() bool {
 	for floor := 0; floor < cl.Floors; floor++ {
 		if elev.hasOrderAtFloor(floor) {
 			return true
@@ -283,7 +283,7 @@ func (sys *System) WriteToFile() {
 	fmt.Println("Buffer data: ", buffer.String())
 }
 
-func ReadFromFile() System {
+func ReadFromFile() *System {
 	var sys System
 	file, err := ioutil.ReadFile("tmp")
 	printError("ReadFile error: ", err)
@@ -292,7 +292,7 @@ func ReadFromFile() System {
 	decoder := gob.NewDecoder(buffer)
 	err = decoder.Decode(&sys)
 	printError("Decode error: ", err)
-	return sys
+	return &sys
 }
 
 func printError(comment string, err error) {

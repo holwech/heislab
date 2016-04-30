@@ -1,30 +1,39 @@
 package master
 
 import (
-	"fmt"
 	"github.com/holwech/heislab/cl"
 	"github.com/holwech/heislab/network"
 	"github.com/holwech/heislab/scheduler"
 	"time"
 )
 
-func Run(backup bool) {
-	fmt.Println("fmt")
-
+func Run(fromBackup bool) {
 	nwSlave := network.InitNetwork(cl.MReadPort, cl.MWritePort, cl.Master)
-	recvFromSlaves := nwSlave.Channels()
 	nwMaster := network.InitNetwork(cl.MtoMPort, cl.MtoMPort, cl.Master)
+	recvFromSlaves := nwSlave.Channels()
 	recvFromMasters := nwMaster.Channels()
-
-	sys := scheduler.NewSystem()
 	slaveCommands := make(chan network.Message, 100)
-	isActiveMaster := true
 
-	pingAlive := time.NewTicker(75 * time.Millisecond)
-	checkConnected := time.NewTicker(300 * time.Millisecond)
+	time.Sleep(50 * time.Millisecond)
+	sys := scheduler.NewSystem()
+	if fromBackup {
+		sys = scheduler.ReadFromFile()
+		elevator := sys.Elevators[nwMaster.LocalIP]
+		elevator.CurrentBehaviour = scheduler.Idle
+		if elevator.HasMoreOrders() {
+			elevator.AwaitingCommand = true
+		}
+		sys.Elevators[nwMaster.LocalIP] = elevator
+	} else {
+		sys.AddElevator(nwMaster.LocalIP)
+	}
+	sys.Print()
+
 	connectedElevators := make(map[string]bool)
 	connectedElevators[nwMaster.LocalIP] = true
-	sys.AddElevator(nwMaster.LocalIP)
+	pingAlive := time.NewTicker(75 * time.Millisecond)
+	checkConnected := time.NewTicker(300 * time.Millisecond)
+	isActiveMaster := true
 
 	for {
 		select {
@@ -33,27 +42,29 @@ func Run(backup bool) {
 			case cl.InnerOrder:
 				content := message.Content.(map[string]interface{})
 				floor := content["Floor"].(int)
-				sys.NotifyInnerOrder(message.Sender, floor, slaveCommands)
-
+				command := sys.NotifyInnerOrder(message.Sender, floor)
+				slaveCommands <- <-command
 			case cl.OuterOrder:
 				content := message.Content.(map[string]interface{})
 				floor := content["Floor"].(int)
 				direction := content["Direction"].(int)
-				sys.NotifyOuterOrder(floor, direction, slaveCommands)
-
+				command := sys.NotifyOuterOrder(floor, direction)
+				slaveCommands <- <-command
 			case cl.Floor:
 				floor := message.Content.(int)
-				sys.NotifyFloor(message.Sender, floor, slaveCommands)
-
+				sys.NotifyFloor(message.Sender, floor)
 			case cl.DoorClosed:
 				sys.NotifyDoorClosed(message.Sender)
-				fmt.Println("doorclose")
 			case cl.EngineFail:
 				sys.NotifyEngineFail(message.Sender)
 			}
 			sys.AssignOuterOrders()
-			sys.CommandConnectedElevators(slaveCommands)
+			commands := sys.CommandConnectedElevators()
+			for command := range commands {
+				slaveCommands <- command
+			}
 			sys.Print()
+			go sys.WriteToFile()
 		case command := <-slaveCommands:
 			if isActiveMaster {
 				nwSlave.Send(command.Receiver, cl.Master, command.Response, command.Content)
@@ -70,6 +81,11 @@ func Run(backup bool) {
 					}
 					fmt.Println(elevatorIP, " disconnected")
 					delete(connectedElevators, elevatorIP)
+					commands := sys.CommandConnectedElevators()
+					for command := range commands {
+						slaveCommands <- command
+					}
+					go sys.WriteToFile()
 				}
 			}
 			//Select master as connected elevator with lowest IP
@@ -94,7 +110,6 @@ func Run(backup bool) {
 						nwMaster.SendMessage(merge)
 					}
 				}
-
 			case cl.Backup:
 				receivedSys := scheduler.SystemFromMessage(message)
 				sys = scheduler.MergeSystems(sys, receivedSys)
