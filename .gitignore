@@ -24,4 +24,4 @@ _testmain.go
 *.test
 *.prof
 
-tmp
+/scheduler/tmp
