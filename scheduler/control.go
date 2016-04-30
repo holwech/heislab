@@ -7,9 +7,9 @@ import (
 
 const MAXCOST int = 100000
 
-func (sys *System) NotifyInnerOrder(elevatorIP string, floor int) chan network.Message{
-    outgoingCommands := make (chan network.Message,1)
-    defer close(outgoingCommands)
+func (sys *System) NotifyInnerOrder(elevatorIP string, floor int) chan network.Message {
+	outgoingCommands := make(chan network.Message, 1)
+	defer close(outgoingCommands)
 	elevator, inSystem := sys.Elevators[elevatorIP]
 	if inSystem {
 		elevator.InnerOrders[floor] = true
@@ -25,7 +25,7 @@ func (sys *System) NotifyInnerOrder(elevatorIP string, floor int) chan network.M
 }
 
 func (sys *System) NotifyOuterOrder(floor, direction int) chan network.Message {
-    outgoingCommands := make (chan network.Message,1)
+	outgoingCommands := make(chan network.Message, 1)
 	defer close(outgoingCommands)
 	if direction == -1 {
 		sys.UnhandledOrdersDown[floor] = true
@@ -54,7 +54,7 @@ func (sys *System) NotifyFloor(elevatorIP string, floor int) {
 func (sys *System) NotifyDoorClosed(elevatorIP string) {
 	elevator, inSystem := sys.Elevators[elevatorIP]
 	if inSystem {
-		if elevator.hasMoreOrders() {
+		if elevator.HasMoreOrders() {
 			elevator.AwaitingCommand = true
 			sys.Elevators[elevatorIP] = elevator
 		} else {
@@ -67,7 +67,7 @@ func (sys *System) NotifyEngineFail(elevatorIP string) {
 	elevator, inSystem := sys.Elevators[elevatorIP]
 	if inSystem {
 		sys.UnassignOuterOrders(elevatorIP)
-		if !elevator.hasMoreOrders() {
+		if !elevator.HasMoreOrders() {
 			if elevator.Direction == 1 {
 				elevator.InnerOrders[elevator.Floor+1] = true
 			} else {
@@ -150,7 +150,7 @@ func (sys *System) AssignOuterOrders() {
 }
 
 func (sys *System) CommandConnectedElevators() chan network.Message {
-	outgoingCommands := make (chan network.Message,100)
+	outgoingCommands := make(chan network.Message, 100)
 	defer close(outgoingCommands)
 	for elevatorIP, elevator := range sys.Elevators {
 		if elevator.AwaitingCommand {
