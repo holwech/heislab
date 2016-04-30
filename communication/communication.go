@@ -1,10 +1,11 @@
 package communication
 
 import (
-	"encoding/json"
 	"fmt"
 	"github.com/holwech/heislab/cl"
 	"net"
+	"bytes"
+	"encoding/gob"
 )
 
 const com_id = "2323" //Key for all elevators in the system
@@ -37,15 +38,19 @@ func broadcast(send chan CommData, localIP string, port string) {
 	lConnection, err := net.DialUDP("udp", localAddress, localhostAddress)
 	printError("DialUDP in Broadcast localhost failed.", err)
 	defer connection.Close()
+
+	var buffer bytes.Buffer
+	encoder := gob.NewEncoder(&buffer)
 	for {
 		message := <-send
-		convMsg, err := json.Marshal(message)
-		printError("Convertion of json failed in broadcast", err)
-		_, err = connection.Write(convMsg)
+		err := encoder.Encode(message)
+		printError("Encode error in broadcast: ", err)
+		_, err = connection.Write(buffer.Bytes())
 		if err != nil {
-			_, err = lConnection.Write(convMsg)
+			_, err = lConnection.Write(buffer.Bytes())
 			printError("Write in broadcast localhost failed", err)
 		}
+		buffer.Reset()
 	}
 }
 
@@ -56,14 +61,17 @@ func listen(receive chan CommData, port string) {
 	connection, err := net.ListenUDP("udp", localAddress)
 	printError("ListenUDP in Listen failed.", err)
 	defer connection.Close()
+
+	var message CommData
+
 	for {
-		var message CommData
-		buffer := make([]byte, 4096)
-		length, _, err := connection.ReadFromUDP(buffer)
+		inputBytes := make([]byte, 4096)
+		length, _, err := connection.ReadFromUDP(inputBytes)
 		printError("ReadFromUDP failed in listen", err)
-		buffer = buffer[:length]
-		err = json.Unmarshal(buffer, &message)
-		printError("Unmarshal failed in listen", err)
+		buffer := bytes.NewBuffer(inputBytes[:length])
+		decoder := gob.NewDecoder(buffer)
+		err = decoder.Decode(&message)
+		printError("Decode error in listen: ", err)
 		//Filters out all messages not relevant for the system
 		if message.Key == com_id {
 			receive <- message
