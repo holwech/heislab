@@ -8,6 +8,21 @@ import (
 	"time"
 )
 
+
+func Run(fromBackup bool) {
+	nwSlave := network.InitNetwork(cl.MReadPort, cl.MWritePort, cl.Master)
+	nwMaster := network.InitNetwork(cl.MtoMPort, cl.MtoMPort, cl.Master)
+	recvFromSlaves := nwSlave.Channels()
+	recvFromMasters := nwMaster.Channels()
+	slaveCommands := make(chan network.Message, 100)
+
+}
+func Run(fromBackup bool) {
+	nwSlave := network.InitNetwork(cl.MReadPort, cl.MWritePort, cl.Master)
+	nwMaster := network.InitNetwork(cl.MtoMPort, cl.MtoMPort, cl.Master)
+	recvFromSlaves := nwSlave.Channels()
+	recvFromMasters := nwMaster.Channels()
+	slaveCommands := make(chan network.Message, 100)
 func Run(fromBackup bool) {
 	nwSlave := network.InitNetwork(cl.MReadPort, cl.MWritePort, cl.Master)
 	nwMaster := network.InitNetwork(cl.MtoMPort, cl.MtoMPort, cl.Master)
