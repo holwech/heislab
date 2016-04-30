@@ -54,7 +54,7 @@ func (sys *System) NotifyFloor(elevatorIP string, floor int) {
 func (sys *System) NotifyDoorClosed(elevatorIP string) {
 	elevator, inSystem := sys.Elevators[elevatorIP]
 	if inSystem {
-		if elevator.hasMoreOrders() {
+		if elevator.HasMoreOrders() {
 			elevator.AwaitingCommand = true
 			sys.Elevators[elevatorIP] = elevator
 		} else {
@@ -67,7 +67,7 @@ func (sys *System) NotifyEngineFail(elevatorIP string) {
 	elevator, inSystem := sys.Elevators[elevatorIP]
 	if inSystem {
 		sys.UnassignOuterOrders(elevatorIP)
-		if !elevator.hasMoreOrders() {
+		if !elevator.HasMoreOrders() {
 			if elevator.Direction == 1 {
 				elevator.InnerOrders[elevator.Floor+1] = true
 			} else {
