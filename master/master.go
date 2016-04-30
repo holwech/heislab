@@ -11,10 +11,10 @@ import (
 func Run(backup bool) {
 	fmt.Println("fmt")
 
-	nwSlave, _ := network.InitNetwork(cl.MReadPort, cl.MWritePort, cl.Master)
-	recvFromSlaves, sendToSlaves := nwSlave.Channels()
-	nwMaster, _ := network.InitNetwork(cl.MtoMPort, cl.MtoMPort, cl.Master)
-	recvFromMasters, sendToMasters := nwMaster.Channels()
+	nwSlave := network.InitNetwork(cl.MReadPort, cl.MWritePort, cl.Master)
+	recvFromSlaves := nwSlave.Channels()
+	nwMaster := network.InitNetwork(cl.MtoMPort, cl.MtoMPort, cl.Master)
+	recvFromMasters := nwMaster.Channels()
 
 	sys := scheduler.NewSystem()
 	slaveCommands := make(chan network.Message, 100)
@@ -48,24 +48,18 @@ func Run(backup bool) {
 			case cl.DoorClosed:
 				sys.NotifyDoorClosed(message.Sender)
 				fmt.Println("doorclose")
-			case cl.System:
-				switch message.Content {
-				case cl.EngineFail:
-					sys.NotifyEngineFail(message.Sender)
-				}
+			case cl.EngineFail:
+				sys.NotifyEngineFail(message.Sender)
 			}
 			sys.AssignOuterOrders()
 			sys.CommandConnectedElevators(slaveCommands)
 			sys.Print()
 		case command := <-slaveCommands:
 			if isActiveMaster {
-				command.Sender = nwSlave.LocalIP
-				command.ID = network.CreateID(cl.Master)
-				sendToSlaves <- command
+				nwSlave.Send(command.Receiver, cl.Master, command.Response, command.Content)
 			}
 		case <-pingAlive.C:
-			ping := network.Message{nwMaster.LocalIP, cl.All, network.CreateID(cl.Master), cl.Ping, ""}
-			sendToMasters <- ping
+			nwMaster.Send(cl.All, cl.Master, cl.Ping, "")
 		case <-checkConnected.C:
 			for elevatorIP := range connectedElevators {
 				if connectedElevators[elevatorIP] == false {
@@ -96,7 +90,7 @@ func Run(backup bool) {
 					merge := sys.ToMessage()
 					for elevatorIP := range connectedElevators {
 						merge.Receiver = elevatorIP
-						sendToMasters <- merge
+						nwMaster.SendMessage(merge)
 					}
 				}
 

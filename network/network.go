@@ -16,38 +16,52 @@ type Message struct {
 }
 
 type Network struct {
-	Receive, Send                            chan Message
+	Receive                                  chan Message
+	send                                     chan<- communication.CommData
 	SenderType, LocalIP, ReadPort, WritePort string
 }
 
-func (nw *Network) Init(readPort string, writePort string, senderType string) {
+func (nw *Network) Init(readPort string, writePort string, senderType string, commSend chan<- communication.CommData) {
 	nw.Receive = make(chan Message)
-	nw.Send = make(chan Message)
+	nw.send = commSend
 	nw.LocalIP = communication.GetLocalIP()
 	nw.ReadPort = readPort
 	nw.WritePort = writePort
 	nw.SenderType = senderType
 }
 
-func (nw *Network) Channels() (<-chan Message, chan<- Message) {
-	return nw.Receive, nw.Send
+func (nw *Network) Channels() <-chan Message {
+	return nw.Receive
+}
+
+func (nw *Network) Send(receiver string, senderType string, response string, content interface{}) {
+	message := Message{
+		Receiver: receiver,
+		ID:       CreateID(senderType),
+		Response: response,
+		Content:  content,
+	}
+	commMsg := *communication.ResolveMsg(nw.LocalIP, message.Receiver, message.ID, message.Response, message.Content)
+	printInfo(&message, "+++ "+senderType+" SENT MESSAGE +++")
+	nw.send <- commMsg
+}
+
+func (nw *Network) SendMessage(message Message) {
+	commMsg := *communication.ResolveMsg(nw.LocalIP, message.Receiver, message.ID, message.Response, message.Content)
+	senderType := "MASTER"
+	if message.ID[0] == 'S' {
+		senderType = "SLAVE"
+	}
+	printInfo(&message, "+++ "+senderType+" SENT MESSAGE +++")
+	nw.send <- commMsg
 }
 
 func InitNetwork(readPort string, writePort string, senderType string) *Network {
 	nw := new(Network)
-	nw.Init(readPort, writePort, senderType)
-	commReceive, commSend := communication.Init(nw.ReadPort, nw.WritePort)
+	commReceive, commSend := communication.Init(readPort, writePort)
+	nw.Init(readPort, writePort, senderType, commSend)
 	go receiver(nw, commReceive)
-	go sender(nw, commSend)
 	return nw
-}
-
-func sender(nw *Network, commSend chan<- communication.CommData) {
-	for {
-		message := <-nw.Send
-		commMsg := *communication.ResolveMsg(nw.LocalIP, message.Receiver, message.ID, message.Response, message.Content)
-		commSend <- commMsg
-	}
 }
 
 func receiver(nw *Network, commReceive <-chan communication.CommData) {
@@ -60,7 +74,7 @@ func receiver(nw *Network, commReceive <-chan communication.CommData) {
 				(convMsg.Receiver == nw.LocalIP || convMsg.Receiver == cl.All) ||
 				(convMsg.Response == cl.Connection && convMsg.ID[0] == 'S') {
 				nw.Receive <- convMsg
-				printInfo("Slave received message", &convMsg)
+				printInfo(&convMsg, "Slave received message")
 			}
 		}
 		if nw.SenderType == cl.Master {
@@ -68,13 +82,13 @@ func receiver(nw *Network, commReceive <-chan communication.CommData) {
 				((convMsg.ID[0] == 'M') && (convMsg.Response != cl.Connection) && convMsg.Receiver != nw.LocalIP) ||
 				((convMsg.ID[0] == 'M') && (convMsg.Response == cl.Connection) && (convMsg.Receiver == nw.LocalIP)) {
 				nw.Receive <- convMsg
-				printInfo("Master received message", &convMsg)
+				printInfo(&convMsg, "Master received message")
 			}
 		}
 	}
 }
 
-func printInfo(comment string, message *Message) {
+func printInfo(message *Message, comment string) {
 	if ((info && message.Response != cl.Connection) || conn) && message.Response != cl.Ping {
 		PrintMessage(message, comment)
 	}
@@ -126,16 +140,6 @@ func assertMsg(message *Message) {
 		}
 		message.Content = tempMap
 	}
-}
-
-func Send(receiver string, senderType string, response string, content interface{}, send chan<- Message) {
-	message := Message{
-		Receiver: receiver,
-		ID:       CreateID(senderType),
-		Response: response,
-		Content:  content,
-	}
-	send <- message
 }
 
 func commToMsg(message *communication.CommData) Message {

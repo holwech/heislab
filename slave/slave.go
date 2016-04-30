@@ -16,25 +16,25 @@ func Run(backup bool) {
 	MotorTimer := time.NewTimer(time.Second)
 	MotorTimer.Stop()
 	go master.Run(backup)
-	receive, send := nw.Channels()
+	receive := nw.Channels()
 	time.Sleep(50 * time.Millisecond)
 
 	for {
 		select {
 		case innerOrder := <-innerChan:
-			network.Send(cl.All, cl.Slave, cl.InnerOrder, innerOrder, send)
+			nw.Send(cl.All, cl.Slave, cl.InnerOrder, innerOrder)
 		case outerOrder := <-outerChan:
-			network.Send(cl.All, cl.Slave, cl.OuterOrder, outerOrder, send)
+			nw.Send(cl.All, cl.Slave, cl.OuterOrder, outerOrder)
 		case newFloor := <-floorChan:
-			network.Send(cl.All, cl.Slave, cl.Floor, newFloor, send)
+			nw.Send(cl.All, cl.Slave, cl.Floor, newFloor)
 			if newFloor != -1 {
 				MotorTimer.Reset(6 * time.Second)
 			}
 		case <-DoorTimer.C:
 			driver.SetDoorLamp(0)
-			network.Send(cl.All, cl.Slave, cl.DoorClosed, cl.Slave, send)
+			nw.Send(cl.All, cl.Slave, cl.DoorClosed, "")
 		case <-MotorTimer.C:
-			network.Send(cl.All, cl.Slave, cl.System, cl.EngineFail, send)
+			nw.Send(cl.All, cl.Slave, cl.EngineFail, "")
 		case message := <-receive:
 			switch message.Response {
 			case cl.Up:
@@ -60,11 +60,6 @@ func Run(backup bool) {
 				driver.SetOuterPanelLamp(-1, message.Content.(int), 1)
 			case cl.LightOffOuterDown:
 				driver.SetOuterPanelLamp(-1, message.Content.(int), 0)
-			case cl.Connection:
-				switch message.Content {
-				case cl.Failed:
-					network.PrintMessage(&message, "Slave received message")
-				}
 			}
 		}
 	}
