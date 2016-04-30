@@ -14,18 +14,20 @@ func Run(fromBackup bool) {
 	recvFromMasters := nwMaster.Channels()
 	slaveCommands := make(chan network.Message, 100)
 
+	time.Sleep(50 * time.Millisecond)
 	sys := scheduler.NewSystem()
-	if fromBackup{
-		sys := scheduler.ReadFromFile()
+	if fromBackup {
+		sys = scheduler.ReadFromFile()
 		elevator := sys.Elevators[nwMaster.LocalIP]
 		elevator.CurrentBehaviour = scheduler.Idle
-		if elevator.HasMoreOrders(){
+		if elevator.HasMoreOrders() {
 			elevator.AwaitingCommand = true
 		}
 		sys.Elevators[nwMaster.LocalIP] = elevator
-	} else{
-		sys.AddElevator(nwMaster.LocalIP)	
+	} else {
+		sys.AddElevator(nwMaster.LocalIP)
 	}
+	sys.Print()
 
 	connectedElevators := make(map[string]bool)
 	connectedElevators[nwMaster.LocalIP] = true
@@ -47,7 +49,7 @@ func Run(fromBackup bool) {
 				floor := content["Floor"].(int)
 				direction := content["Direction"].(int)
 				command := sys.NotifyOuterOrder(floor, direction)
-				slaveCommands <- <- command
+				slaveCommands <- <-command
 			case cl.Floor:
 				floor := message.Content.(int)
 				sys.NotifyFloor(message.Sender, floor)
@@ -58,7 +60,7 @@ func Run(fromBackup bool) {
 			}
 			sys.AssignOuterOrders()
 			commands := sys.CommandConnectedElevators()
-			for command := range commands{
+			for command := range commands {
 				slaveCommands <- command
 			}
 			sys.Print()
@@ -79,7 +81,7 @@ func Run(fromBackup bool) {
 					}
 					delete(connectedElevators, elevatorIP)
 					commands := sys.CommandConnectedElevators()
-					for command := range commands{
+					for command := range commands {
 						slaveCommands <- command
 					}
 					go sys.WriteToFile()
