@@ -106,6 +106,17 @@ func Run(fromBackup bool) {
 						slaveCommands <- command
 					}
 					sys.Print()
+					masterIP := nwSlave.LocalIP
+					for elevatorIP := range connectedElevators {
+						if elevatorIP < masterIP {
+							masterIP = elevatorIP
+						}
+					}
+					isActiveMaster = (masterIP == nwMaster.LocalIP)
+					lights := sys.SendLightCommands()
+					for _, command := range lights {
+						slaveCommands <- command
+					}
 					go sys.WriteToFile()
 				} else {
 					connectedElevators[elevatorIP] = false
@@ -138,7 +149,7 @@ func Run(fromBackup bool) {
 				}
 			case cl.Backup:
 				receivedSys := scheduler.SystemFromMessage(message)
-				sys = scheduler.MergeSystems(sys, receivedSys)
+				scheduler.MergeSystems(sys, receivedSys)
 				commands := sys.SendLightCommands()
 				for _, command := range commands {
 					slaveCommands <- command
