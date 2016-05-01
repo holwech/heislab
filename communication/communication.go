@@ -13,7 +13,7 @@ const broadcast_addr = "255.255.255.255"
 
 type CommData struct {
 	Key, SenderIP, ReceiverIP, MsgID, Response string
-	Content                                    interface{}
+	Content                                    map[string]interface{}
 }
 
 func Init(readPort string, writePort string) (<-chan CommData, chan<- CommData) {
@@ -114,7 +114,7 @@ func GetLocalIP() string {
 	return localIP
 }
 
-func ResolveMsg(senderIP string, receiverIP string, msgID string, response string, content interface{}) (commData *CommData) {
+func ResolveMsg(senderIP string, receiverIP string, msgID string, response string, content map[string]interface{}) (commData *CommData) {
 	message := CommData{
 		Key:        com_id,
 		SenderIP:   senderIP,

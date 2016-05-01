@@ -5,6 +5,7 @@ import (
 	"github.com/holwech/heislab/cl"
 	"github.com/holwech/heislab/communication"
 	"github.com/satori/go.uuid"
+	"reflect"
 )
 
 const info = true
@@ -35,6 +36,9 @@ func (nw *Network) Channels() <-chan Message {
 }
 
 func (nw *Network) Send(receiver string, senderType string, response string, content interface{}) {
+	if reflect.TypeOf(content) != map[string]interface{} {
+		response = map[string]interface{}{}
+	}
 	message := Message{
 		Receiver: receiver,
 		ID:       CreateID(senderType),
@@ -69,7 +73,7 @@ func receiver(nw *Network, commReceive <-chan communication.CommData) {
 		message := <-commReceive
 		convMsg := commToMsg(&message)
 		assertMsg(&convMsg)
-		if convMsg.Receiver == nw.LocalIP || convMsg.Receiver == cl.All {
+		if (convMsg.Receiver == nw.LocalIP || convMsg.Receiver == cl.All) && convMsg.Sender != nw.LocalIP {
 			if nw.SenderType == cl.Slave {
 				nw.Receive <- convMsg
 				printInfo(&convMsg, "Slave received message")

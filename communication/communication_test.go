@@ -13,7 +13,7 @@ func TestSend(t *testing.T) {
 	count := 0
 	for{
 		msgID := uuid.NewV4()
-		msg := ResolveMsg(GetLocalIP(), GetLocalIP(), msgID.String(), "Test", count) 
+		msg := ResolveMsg(GetLocalIP(), GetLocalIP(), msgID.String(), "Test", map[string]interface{}{"val": count})
 		sendCh <- *msg
 		time.Sleep(10 * time.Second)
 		count += 1
@@ -27,7 +27,7 @@ func TestSendAndListen(t *testing.T) {
 	count := 0
 	for{
 		msgID := uuid.NewV4()
-		msg := ResolveMsg(GetLocalIP(), GetLocalIP(), msgID.String(), "Test", map[string]int{"val": count}) 
+		msg := ResolveMsg(GetLocalIP(), GetLocalIP(), msgID.String(), "Test", map[string]interface{}{"val": count})
 		sendCh <- *msg
 		time.Sleep(10 * time.Second)
 		count += 1

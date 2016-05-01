@@ -9,267 +9,166 @@ import (
 	"io/ioutil"
 )
 
-type Behaviour int
-
-const (
-	Idle Behaviour = iota
-	Moving
-	DoorOpen
-	EngineFailure
-)
-
 type ElevatorState struct {
 	Floor            int
 	Direction        int
-	CurrentBehaviour Behaviour
 	InnerOrders      [cl.Floors]bool
-	OuterOrdersUp    [cl.Floors]bool
-	OuterOrdersDown  [cl.Floors]bool
-	AwaitingCommand  bool
+	DoorClosed			 bool
+	EngineFail			 bool
+	PingTime				 time.Time
 }
 
 type System struct {
 	Elevators           map[string]ElevatorState
-	UnhandledOrdersUp   [cl.Floors]bool
-	UnhandledOrdersDown [cl.Floors]bool
+	OrdersUp					  [cl.Floors]bool
+	OrdersDown				  [cl.Floors]bool
+	IsActive						bool
 }
 
-func (elev *ElevatorState) hasOrderAtFloor(floor int) bool {
-	if elev.InnerOrders[floor] ||
-		elev.OuterOrdersDown[floor] ||
-		elev.OuterOrdersUp[floor] {
-		return true
-	}
-	return false
+func NewSystem(localIP string) *System{
+	sys := new(System)
+	sys.Elevators = make(map[string]ElevatorState)
+	elevator := ElevatorState{Floor: 0, Direction: 1}
+	sys.Elevators[localIP] = elevator
+	sys.IsActive = true
+	return sys
 }
 
-func (elev *ElevatorState) HasMoreOrders() bool {
-	for floor := 0; floor < cl.Floors; floor++ {
-		if elev.hasOrderAtFloor(floor) {
-			return true
+func (sys *System) CheckTimeout(localIP string) bool {
+	disconnect := false
+	for elevIP, elevState := range sys.Elevators {
+		diff := time.Sub(elevState.PingTime)
+		if 300 * time.Millisecond < diff && elevIP != localIP {
+			delete(sys.Elevators, elevIP)
+			disconnect = true
+			fmt.Println(elevIP, " disconnected")
 		}
 	}
-	return false
+	return disconnect
 }
 
-func (elev *ElevatorState) shouldStop(floor int) bool {
-	hasDownOrdersAbove := false
-	hasUpOrdersBelow := false
-	for f := elev.Floor + 1; f < cl.Floors; f++ {
-		if elev.OuterOrdersDown[f] {
-			hasDownOrdersAbove = true
+func (sys *System) UpdatePingTime(elevIP string) bool {
+	newElev := false
+	if _, exists := sys.Elevators[elevIP], !exists {
+		sys.Elevators[elevIP] = ElevatorState{}
+		newElev = true
+		fmt.Println(elevIP, " connected")
+	}
+	elevator := &sys.Elevators[elevIP]
+	elevator.PingTime = time.Now()
+	return newElev
+}
+
+func (sys *System) MergeSystems(message *network.Message) {
+	sys2 := backupToSystem(&message)
+	for i, val := range sys.OrdersUp {
+		sys.OrdersUp[i] = (sys.OrdersUp[i] || sys2.OrdersUp[i])
+	}
+	for i, val := range sys.OrdersDown {
+		sys.OrdersDown[i] = (sys.OrdersDown[i] || sys2.OrdersDown[i])
+	}
+	for elevIP, elevState := range sys2.Elevators {
+		sys.Elevators[elevIP] = elevState
+	}
+}
+
+func (sys *System) SetActive(localIP string) {
+	for elevIP, _ := range sys.Elevators {
+		if elevIP < localIP {
+			sys.IsActive = false
 		}
 	}
-	for f := 0; f < elev.Floor; f++ {
-		if elev.OuterOrdersUp[f] {
-			hasUpOrdersBelow = true
-		}
-	}
-	shouldStop := false
-	if elev.InnerOrders[floor] {
-		shouldStop = true
-	}
-	if elev.Direction == 1 && elev.OuterOrdersUp[floor] {
-		shouldStop = true
-	} else if elev.Direction == -1 && elev.OuterOrdersDown[floor] {
-		shouldStop = true
-	}
-	if elev.Direction == -1 && elev.OuterOrdersUp[floor] && !hasUpOrdersBelow {
-		shouldStop = true
-	} else if elev.Direction == 1 && elev.OuterOrdersDown[floor] && !hasDownOrdersAbove {
-		shouldStop = true
-	}
-	return shouldStop
-
+	sys.IsActive = true
 }
 
-func NewSystem() *System {
-	var s System
-	s.Elevators = make(map[string]ElevatorState)
-	return &s
+func (sys *System) Recover(localIP string) {
+	backup = ReadFromFile()
+	sys = scheduler.NewSystem(nwMaster.LocalIP)
+	elevator := &sys.Elevators[localIP]
+	elevatorBackup := backup.Elevators[localIP]
+	elevator.InnerOrders = elevatorBackup.InnerOrders
+	if len(backup.Elevators) == 1 {
+		 sys.OrdersUp = backup.OrdersUp
+		 sys.OrdersDown = backup.OrdersDown
+	}
 }
 
-func MergeSystems(sys1 *System, sys2 *System) *System {
-	var s System
-	s.Elevators = make(map[string]ElevatorState)
-	for elevIP, elev := range sys1.Elevators {
-		s.Elevators[elevIP] = elev
-	}
-	for elevIP, elev := range sys2.Elevators {
-		s.Elevators[elevIP] = elev
-	}
-	for floor := 0; floor < cl.Floors; floor++ {
-		s.UnhandledOrdersDown[floor] = sys1.UnhandledOrdersDown[floor] || sys2.UnhandledOrdersDown[floor]
-		s.UnhandledOrdersUp[floor] = sys1.UnhandledOrdersUp[floor] || sys2.UnhandledOrdersUp[floor]
-	}
-	return &s
-}
-
-func (sys *System) ToMessage() network.Message {
-	backup := network.Message{network.LocalIP(), "",
-		network.CreateID(cl.Master), cl.Backup, *sys}
+func (sys *System) CreateBackup() map[string]interface{} {
+	var buffer bytes.Buffer
+	var backup map[string][]byte
+	encoder := gob.NewEncoder(&buffer)
+	err := encoder.Encode(*sys)
+	printError("Encode error in CreateBackup:", err)
+	backup[cl.Backup] = buffer.Bytes()
 	return backup
 }
 
-func SystemFromMessage(message network.Message) *System {
-	s := NewSystem()
-	for key, val := range message.Content.(map[string]interface{}) {
-		switch val.(type) {
-		case map[string]interface{}:
-			for elevIP, elevInterface := range val.(map[string]interface{}) {
-				var elevTmp ElevatorState
-				fmt.Println(elevIP, elevInterface)
-				for key2, val2 := range elevInterface.(map[string]interface{}) {
-					switch val2.(type) {
-					case float64:
-						switch key2 {
-						case "Direction":
-							elevTmp.Direction = int(val2.(float64))
-						case "Floor":
-							elevTmp.Floor = int(val2.(float64))
-						case "Behaviour":
-							elevTmp.CurrentBehaviour = Behaviour(val2.(float64))
-						}
-					case []interface{}:
-						for i, order := range val2.([]interface{}) {
-							if key == "OuterOrdersUp" {
-								elevTmp.OuterOrdersUp[i] = order.(bool)
-							} else if key == "OuterOrdersDown" {
-								elevTmp.OuterOrdersDown[i] = order.(bool)
-							} else {
-								elevTmp.InnerOrders[i] = order.(bool)
-							}
-						}
-					case bool:
-						elevTmp.AwaitingCommand = (val2.(bool))
-					}
-				}
-				s.Elevators[elevIP] = elevTmp
-			}
-		case []interface{}:
-			for i, order := range val.([]interface{}) {
-				if key == "UnhandledOrdersUp" {
-					s.UnhandledOrdersUp[i] = order.(bool)
-				} else if key == "UnhandledOrdersDown" {
-					s.UnhandledOrdersDown[i] = order.(bool)
-				}
+func backupToSystem(message *network.Message) *System {
+	var sys *System
+	printError("ReadFile error in backupToSystem:", err)
+	buffer := bytes.NewBuffer(message.Content[cl.Backup])
+	decoder := gob.NewDecoder(buffer)
+	err = decoder.Decode(sys)
+	printError("Decode error in backupToSystem:", err)
+	return sys
+}
 
-			}
+func (sys *System) RefreshAllElevators() []network.Message {
+	var orders []network.Message
+	for elevIP, _ := range sys.Elevators {
+		innerOrders := sys.RefreshInnerLights(elevIP)
+		orders = append(orders, innerOrders...)
+	}
+	outerOrders := sys.RefreshOuterLights()
+	orders = append(orders, outerOrders...)
+	return orders
+}
+
+func (sys *System) RefreshInnerLights(elevIP string) []network.Message {
+	var orders []network.Message
+	elevator := sys.Elevators[elevIP]
+	for _, lightOn := range elevator.InnerOrders {
+		response := cl.LightOffInner
+		if lightOn {
+			response = cl.LightOnInner
 		}
+		message = network.Message{ "", elevIP, "", response, map[string]interface{}{cl.Floor: i}}
+		orders = append(orders, message)
 	}
-	return s
+	return orders
 }
 
-func (sys *System) AddElevator(elevatorIP string) bool {
-	_, exists := sys.Elevators[elevatorIP]
-	if !exists {
-		sys.Elevators[elevatorIP] = ElevatorState{Direction: 1}
-	}
-	return !exists
-}
-
-func (sys *System) RemoveElevator(elevatorIP string) bool {
-	_, exists := sys.Elevators[elevatorIP]
-	if exists {
-		delete(sys.Elevators, elevatorIP)
-	}
-	return exists
-}
-
-func (sys *System) ClearOrder(elevatorIP string, floor int) {
-	elevator, inSystem := sys.Elevators[elevatorIP]
-	if inSystem {
-		elevator.InnerOrders[floor] = false
-		elevator.OuterOrdersDown[floor] = false
-		elevator.OuterOrdersUp[floor] = false
-		sys.Elevators[elevatorIP] = elevator
-	}
-}
-
-func (sys *System) UnassignOuterOrders(elevatorIP string) {
-	elevator, inSystem := sys.Elevators[elevatorIP]
-	if inSystem {
-		for floor := 0; floor < cl.Floors; floor++ {
-			if elevator.OuterOrdersUp[floor] {
-				sys.UnhandledOrdersUp[floor] = true
-				elevator.OuterOrdersUp[floor] = false
-			}
-			if elevator.OuterOrdersDown[floor] {
-				sys.UnhandledOrdersDown[floor] = true
-				elevator.OuterOrdersDown[floor] = false
-			}
+func (sys *System) RefreshOuterLights() []network.Message {
+	var orders []network.Message
+	for _, lightOn := range sys.OrdersUp {
+		response := cl.LightOffOuterUp
+		if lightOn {
+			response = cl.LightOnOuterUp
 		}
-		sys.Elevators[elevatorIP] = elevator
+		message := network.Message{ "", cl.All, "", response, map[string]interface{}{cl.Floor: i}}
+		orders = append(orders, message)
+		response = cl.LightOffOuterDown
+		if lightOn {
+			response = cl.LightOnOuterDown
+		}
+		message = network.Message{ "", cl.All, "", response, map[string]interface{}{cl.Floor: i}}
+		orders = append(orders, message)
 	}
-}
-
-func (sys *System) SetBehaviour(elevatorIP string, behaviour Behaviour) {
-	elevator, inSystem := sys.Elevators[elevatorIP]
-	if inSystem {
-		elevator.CurrentBehaviour = behaviour
-		sys.Elevators[elevatorIP] = elevator
-	}
-}
-
-func (sys *System) SetDirection(elevatorIP string, direction int) {
-	elevator, inSystem := sys.Elevators[elevatorIP]
-	if inSystem {
-		elevator.Direction = direction
-		sys.Elevators[elevatorIP] = elevator
-	}
+	return orders
 }
 
 func (sys *System) Print() {
-	fmt.Println()
-	for elevatorIP, elevator := range sys.Elevators {
-		fmt.Printf("%s: floor: %d, direction: %d,", elevatorIP, elevator.Floor, elevator.Direction)
-		switch elevator.CurrentBehaviour {
-		case Idle:
-			fmt.Println(" Idle ")
-		case Moving:
-			fmt.Println(" Moving ")
-		case DoorOpen:
-			fmt.Println(" DoorOpen ")
-		case EngineFailure:
-			fmt.Println(" Engine Failure ")
-		}
-		fmt.Print("Inner orders: ", elevator.InnerOrders)
-		fmt.Print("  Outer up: ", elevator.OuterOrdersUp)
-		fmt.Println("  Outer Down: ", elevator.OuterOrdersDown)
-		fmt.Println("--------------------------")
-	}
-	fmt.Println(sys.UnhandledOrdersUp)
-	fmt.Println(sys.UnhandledOrdersDown)
-	fmt.Println("--------------------------")
-}
-
-func (sys *System) SendLightCommands(outgoingCommands chan network.Message) {
-	for floor := 0; floor < cl.Floors; floor++ {
-		assignedUp := false
-		assignedDown := false
-		for elevIP, elev := range sys.Elevators {
-			if elev.InnerOrders[floor] {
-				outgoingCommands <- network.Message{"", elevIP, "", cl.LightOnInner, floor}
-			} else {
-				outgoingCommands <- network.Message{"", elevIP, "", cl.LightOffInner, floor}
-			}
-			if elev.OuterOrdersUp[floor] {
-				assignedUp = true
-			}
-			if elev.OuterOrdersDown[floor] {
-				assignedDown = true
-			}
-		}
-		if assignedDown || sys.UnhandledOrdersDown[floor] {
-			outgoingCommands <- network.Message{"", cl.All, "", cl.LightOnOuterDown, floor}
-		} else {
-			outgoingCommands <- network.Message{"", cl.All, "", cl.LightOffOuterDown, floor}
-		}
-		if assignedUp || sys.UnhandledOrdersUp[floor] {
-			outgoingCommands <- network.Message{"", cl.All, "", cl.LightOnOuterUp, floor}
-		} else {
-			outgoingCommands <- network.Message{"", cl.All, "", cl.LightOffOuterUp, floor}
-		}
+	fmt.Println("------------------------------")
+	fmt.Println("SYSTEM ACTIVE:", sys.IsActive)
+	fmt.Println("Orders up:", sys.OrdersUp, "Orders down:", sys.OrdersDown)
+	for elevIP, elevState := range sys.Elevators {
+		fmt.Println(elevIP, "---------------")
+		fmt.Println("Floor:", elevState.Floor,
+								"Direction:", elevState.Direction,
+								"DoorClosed:", elevState.DoorClosed,
+								"EngineFail:", elevState.EngineFail)
+		fmt.Println("Inner orders:", elevState.InnerOrders)
+		fmt.Println("------------------------------")
 	}
 }
 
@@ -284,15 +183,15 @@ func (sys *System) WriteToFile() {
 }
 
 func ReadFromFile() *System {
-	var sys System
+	var sys *System
 	file, err := ioutil.ReadFile("tmp")
 	printError("ReadFile error: ", err)
 	buffer := bytes.NewBuffer(file)
 	fmt.Println("BACKUP: Reading from file...")
 	decoder := gob.NewDecoder(buffer)
-	err = decoder.Decode(&sys)
+	err = decoder.Decode(sys)
 	printError("Decode error: ", err)
-	return &sys
+	return sys
 }
 
 func printError(comment string, err error) {

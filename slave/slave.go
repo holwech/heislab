@@ -22,11 +22,15 @@ func Run(backup bool) {
 	for {
 		select {
 		case innerOrder := <-innerChan:
-			nw.Send(cl.All, cl.Slave, cl.InnerOrder, innerOrder)
+			nw.Send(cl.All, cl.Slave, cl.InnerOrder, map[string]interface{}{cl.Floor: innerOrder})
 		case outerOrder := <-outerChan:
-			nw.Send(cl.All, cl.Slave, cl.OuterOrder, outerOrder)
+			response := map[string]interface{}{
+				cl.Floor: outerOrder.Floor,
+				cl.Direction: outerOrder.Direction,
+			}
+			nw.Send(cl.All, cl.Slave, cl.OuterOrder, response)
 		case newFloor := <-floorChan:
-			nw.Send(cl.All, cl.Slave, cl.Floor, newFloor)
+			nw.Send(cl.All, cl.Slave, cl.Floor, map[string]interface{}{cl.Floor: newFloor})
 			if newFloor != -1 {
 				MotorTimer.Reset(6 * time.Second)
 			}
@@ -49,17 +53,17 @@ func Run(backup bool) {
 				MotorTimer.Stop()
 				DoorTimer.Reset(3 * time.Second)
 			case cl.LightOnInner:
-				driver.SetInnerPanelLamp(message.Content.(int), 1)
+				driver.SetInnerPanelLamp(message.Content[cl.Floor], 1)
 			case cl.LightOffInner:
-				driver.SetInnerPanelLamp(message.Content.(int), 0)
+				driver.SetInnerPanelLamp(message.Content[cl.Floor], 0)
 			case cl.LightOnOuterUp:
-				driver.SetOuterPanelLamp(1, message.Content.(int), 1)
+				driver.SetOuterPanelLamp(1, message.Content[cl.Floor], 1)
 			case cl.LightOffOuterUp:
-				driver.SetOuterPanelLamp(1, message.Content.(int), 0)
+				driver.SetOuterPanelLamp(1, message.Content[cl.Floor], 0)
 			case cl.LightOnOuterDown:
-				driver.SetOuterPanelLamp(-1, message.Content.(int), 1)
+				driver.SetOuterPanelLamp(-1, message.Content[cl.Floor], 1)
 			case cl.LightOffOuterDown:
-				driver.SetOuterPanelLamp(-1, message.Content.(int), 0)
+				driver.SetOuterPanelLamp(-1, message.Content[cl.Floor], 0)
 			}
 		}
 	}

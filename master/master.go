@@ -14,122 +14,68 @@ func Run(fromBackup bool) {
 	nwMaster := network.InitNetwork(cl.MtoMPort, cl.MtoMPort, cl.Master)
 	recvFromSlaves := nwSlave.Channels()
 	recvFromMasters := nwMaster.Channels()
-	slaveCommands := make(chan network.Message, 100)
+	ping := time.NewTicker(100 * time.Millisecond)
+	pingTimeout := time.NewTimer(300 * time.Millisecond)
+	var orders []network.Message
 
-}
-func Run(fromBackup bool) {
-	nwSlave := network.InitNetwork(cl.MReadPort, cl.MWritePort, cl.Master)
-	nwMaster := network.InitNetwork(cl.MtoMPort, cl.MtoMPort, cl.Master)
-	recvFromSlaves := nwSlave.Channels()
-	recvFromMasters := nwMaster.Channels()
-	slaveCommands := make(chan network.Message, 100)
-func Run(fromBackup bool) {
-	nwSlave := network.InitNetwork(cl.MReadPort, cl.MWritePort, cl.Master)
-	nwMaster := network.InitNetwork(cl.MtoMPort, cl.MtoMPort, cl.Master)
-	recvFromSlaves := nwSlave.Channels()
-	recvFromMasters := nwMaster.Channels()
-	slaveCommands := make(chan network.Message, 100)
-
-	time.Sleep(50 * time.Millisecond)
-	sys := scheduler.NewSystem()
+	var sys *scheduler.System
 	if fromBackup {
-		sys = scheduler.ReadFromFile()
-		elevator := sys.Elevators[nwMaster.LocalIP]
-		elevator.CurrentBehaviour = scheduler.Idle
-		if elevator.HasMoreOrders() {
-			elevator.AwaitingCommand = true
-		}
-		sys.Elevators[nwMaster.LocalIP] = elevator
+		sys.Recover(nwMaster.LocalIP)
+		sendOrders(sys.RefreshAllElevators(), nwSlave, sys)
 	} else {
-		sys.AddElevator(nwMaster.LocalIP)
+		sys = scheduler.NewSystem(nwMaster.LocalIP)
 	}
-	sys.Print()
-
-	connectedElevators := make(map[string]bool)
-	connectedElevators[nwMaster.LocalIP] = true
-	pingAlive := time.NewTicker(75 * time.Millisecond)
-	checkConnected := time.NewTicker(300 * time.Millisecond)
-	isActiveMaster := true
-
 	for {
 		select {
-		case message := <-recvFromSlaves:
+		case message <- recvFromSlaves:
 			switch message.Response {
 			case cl.InnerOrder:
-				content := message.Content.(map[string]interface{})
-				floor := content["Floor"].(int)
-				command := sys.NotifyInnerOrder(message.Sender, floor)
-				slaveCommands <- <-command
+				orders = sys.AddOrder(&message)
 			case cl.OuterOrder:
-				content := message.Content.(map[string]interface{})
-				floor := content["Floor"].(int)
-				direction := content["Direction"].(int)
-				command := sys.NotifyOuterOrder(floor, direction)
-				slaveCommands <- <-command
+				orders = sys.AddOrder(&message)
 			case cl.Floor:
-				floor := message.Content.(int)
-				sys.NotifyFloor(message.Sender, floor)
+				orders = sys.StateChange(&message)
 			case cl.DoorClosed:
-				sys.NotifyDoorClosed(message.Sender)
+				orders = sys.StateChange(&message)
 			case cl.EngineFail:
-				sys.NotifyEngineFail(message.Sender)
+				orders = sys.StateChange(&message)
 			}
-			sys.AssignOuterOrders()
-			commands := sys.CommandConnectedElevators()
-			for command := range commands {
-				slaveCommands <- command
-			}
-			sys.Print()
-			go sys.WriteToFile()
-		case command := <-slaveCommands:
-			if isActiveMaster {
-				nwSlave.Send(command.Receiver, cl.Master, command.Response, command.Content)
-			}
-		case <-pingAlive.C:
-			nwMaster.Send(cl.All, cl.Master, cl.Ping, "")
-		case <-checkConnected.C:
-			for elevatorIP := range connectedElevators {
-				if connectedElevators[elevatorIP] == false {
-					if isActiveMaster {
-						sys.NotifyDisconnectionActive(elevatorIP)
-					} else {
-						sys.NotifyDisconnectionInactive(elevatorIP)
-					}
-					fmt.Println(elevatorIP, " disconnected")
-					delete(connectedElevators, elevatorIP)
-					commands := sys.CommandConnectedElevators()
-					for command := range commands {
-						slaveCommands <- command
-					}
-					go sys.WriteToFile()
-				}
-			}
-			//Select master as connected elevator with lowest IP
-			masterIP := nwSlave.LocalIP
-			for elevatorIP := range connectedElevators {
-				if elevatorIP < masterIP {
-					masterIP = elevatorIP
-				}
-				connectedElevators[elevatorIP] = false
-			}
-			isActiveMaster = (masterIP == nwMaster.LocalIP)
-			connectedElevators[nwMaster.LocalIP] = true
-		case message := <-recvFromMasters:
-			switch message.Response {
+			sendOrders(orders, nwSlave, sys)
+			sys.WriteToFile()
+		case message <- recvFromMasters:
+			switch message.Response{
 			case cl.Ping:
-				_, alreadyConnected := connectedElevators[message.Sender]
-				connectedElevators[message.Sender] = true
-				if !alreadyConnected {
-					merge := sys.ToMessage()
-					for elevatorIP := range connectedElevators {
-						merge.Receiver = elevatorIP
-						nwMaster.SendMessage(merge)
-					}
+				newElev := sys.UpdatePingTime(message.Sender)
+				if newElev && sys.IsActive {
+					backup := sys.CreateBackup()
+					nwMaster.Send(cl.All, cl.Master, cl.Backup, backup)
 				}
 			case cl.Backup:
-				receivedSys := scheduler.SystemFromMessage(message)
-				sys = scheduler.MergeSystems(sys, receivedSys)
+				sys.MergeSystems(&message)
+				sys.SetActive(nwMaster.LocalIP)
+				sendOrders(sys.RefreshAllElevators())
+				sys.WriteToFile()
+			}
+		case <- ping:
+			nwMaster.Send(cl.All, cl.Master, cl.Ping, "")
+		case <- pingTimeout:
+			disconnect := sys.CheckTimeout()
+			if disconnect {
+				if !sys.IsActive {
+					sendOrders(sys.ClearOuterOrders(), nwSlave, sys)
+				}
+				sys.SetActive(nwMaster.LocalIP)
+				sys.WriteToFile()
 			}
 		}
+	}
+}
+
+func sendOrders(orders []network.Message, nwSlave chan<- network.Message, sys *System) {
+	if !sys.IsActive {
+		return
+	}
+	for _, order := range orders {
+		nwSlave.SendMessage(order)
 	}
 }
