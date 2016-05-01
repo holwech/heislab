@@ -34,10 +34,15 @@ func Run(fromBackup bool) {
 			elevator.AwaitingCommand = true
 		}
 		sys.Elevators[nwMaster.LocalIP] = elevator
-		commands := sys.SendLightCommands()
-		for command := range commands {
+		lights := sys.SendLightCommands()
+		for _, command := range lights {
 			nwSlave.SendMessage(command)
 		}
+		commands := sys.CommandConnectedElevators()
+		for command := range commands {
+			slaveCommands <- command
+		}
+		fmt.Println("Loading backup sucessfull!")
 	} else {
 		sys.AddElevator(nwMaster.LocalIP)
 	}
@@ -113,7 +118,7 @@ func Run(fromBackup bool) {
 						merge.Receiver = elevatorIP
 						nwMaster.SendMessage(merge)
 					}
-					fmt.Println(elevatorIP, " connected")
+					fmt.Println(message.Sender, " connected")
 					//Select master as connected elevator with lowest IP
 					masterIP := nwSlave.LocalIP
 					for elevatorIP := range connectedElevators {
@@ -128,8 +133,8 @@ func Run(fromBackup bool) {
 				receivedSys := scheduler.SystemFromMessage(message)
 				sys = scheduler.MergeSystems(sys, receivedSys)
 				commands := sys.SendLightCommands()
-				for command := range commands {
-					slaveCommands <- commnand
+				for _, command := range commands {
+					slaveCommands <- command
 				}
 			}
 		}

@@ -252,16 +252,16 @@ func (sys *System) Print() {
 	fmt.Println("--------------------------")
 }
 
-func (sys *System) SendLightCommands() chan network.Message {
-	outgoingCommands := make(chan network.Message, 10*cl.Floors)
+func (sys *System) SendLightCommands() []network.Message {
+	outgoingCommands := []network.Message{}
 	for floor := 0; floor < cl.Floors; floor++ {
 		assignedUp := false
 		assignedDown := false
 		for elevIP, elev := range sys.Elevators {
 			if elev.InnerOrders[floor] {
-				outgoingCommands <- network.Message{"", elevIP, "", cl.LightOnInner, floor}
+				outgoingCommands = append(outgoingCommands, network.Message{"", elevIP, network.CreateID(cl.Master), cl.LightOnInner, floor})
 			} else {
-				outgoingCommands <- network.Message{"", elevIP, "", cl.LightOffInner, floor}
+				outgoingCommands = append(outgoingCommands, network.Message{"", elevIP, network.CreateID(cl.Master), cl.LightOffInner, floor})
 			}
 			if elev.OuterOrdersUp[floor] {
 				assignedUp = true
@@ -271,14 +271,14 @@ func (sys *System) SendLightCommands() chan network.Message {
 			}
 		}
 		if assignedDown || sys.UnhandledOrdersDown[floor] {
-			outgoingCommands <- network.Message{"", cl.All, "", cl.LightOnOuterDown, floor}
+			outgoingCommands = append(outgoingCommands, network.Message{"", cl.All, network.CreateID(cl.Master), cl.LightOnOuterDown, floor})
 		} else {
-			outgoingCommands <- network.Message{"", cl.All, "", cl.LightOffOuterDown, floor}
+			outgoingCommands = append(outgoingCommands, network.Message{"", cl.All, network.CreateID(cl.Master), cl.LightOffOuterDown, floor})
 		}
 		if assignedUp || sys.UnhandledOrdersUp[floor] {
-			outgoingCommands <- network.Message{"", cl.All, "", cl.LightOnOuterUp, floor}
+			outgoingCommands = append(outgoingCommands, network.Message{"", cl.All, network.CreateID(cl.Master), cl.LightOnOuterUp, floor})
 		} else {
-			outgoingCommands <- network.Message{"", cl.All, "", cl.LightOffOuterUp, floor}
+			outgoingCommands = append(outgoingCommands, network.Message{"", cl.All, network.CreateID(cl.Master), cl.LightOffOuterUp, floor})
 		}
 	}
 	return outgoingCommands
