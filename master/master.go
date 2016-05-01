@@ -30,11 +30,14 @@ func Run(fromBackup bool) {
 			sys.UnhandledOrdersDown = backup.UnhandledOrdersDown
 		}
 		elevator.CurrentBehaviour = scheduler.Idle
+		elevator.Direction = 1
+		elevator.Floor = 0
 		if elevator.HasMoreOrders() {
 			elevator.AwaitingCommand = true
 		}
 		sys.Elevators[nwMaster.LocalIP] = elevator
 		lights := sys.SendLightCommands()
+		sys.Print()
 		for _, command := range lights {
 			nwSlave.SendMessage(command)
 		}
@@ -102,6 +105,7 @@ func Run(fromBackup bool) {
 					for command := range commands {
 						slaveCommands <- command
 					}
+					sys.Print()
 					go sys.WriteToFile()
 				} else {
 					connectedElevators[elevatorIP] = false
@@ -116,8 +120,10 @@ func Run(fromBackup bool) {
 				if !alreadyConnected {
 					merge := sys.ToMessage()
 					for elevatorIP := range connectedElevators {
-						merge.Receiver = elevatorIP
-						nwMaster.SendMessage(merge)
+						if elevatorIP != nwMaster.LocalIP {
+							merge.Receiver = elevatorIP
+							nwMaster.SendMessage(merge)
+						}
 					}
 					fmt.Println(message.Sender, " connected")
 					//Select master as connected elevator with lowest IP
@@ -137,6 +143,7 @@ func Run(fromBackup bool) {
 				for _, command := range commands {
 					slaveCommands <- command
 				}
+				sys.Print()
 			}
 		}
 	}
