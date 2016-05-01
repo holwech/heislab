@@ -28,7 +28,7 @@ type System struct {
 func NewSystem(localIP string) *System{
 	sys := new(System)
 	sys.Elevators = make(map[string]ElevatorState)
-	elevator := ElevatorState{Floor: 0, Direction: 1}
+	elevator := ElevatorState{Floor: 0, Direction: 0}
 	sys.Elevators[localIP] = elevator
 	sys.IsActive = true
 	return sys
