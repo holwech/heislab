@@ -15,16 +15,29 @@ func Run(fromBackup bool) {
 	recvFromMasters := nwMaster.Channels()
 	slaveCommands := make(chan network.Message, 100)
 
+	isActiveMaster := true
 	time.Sleep(50 * time.Millisecond)
 	sys := scheduler.NewSystem()
 	if fromBackup {
-		sys = scheduler.ReadFromFile()
-		elevator := sys.Elevators[nwMaster.LocalIP]
+		backup := scheduler.ReadFromFile()
+		var elevator scheduler.ElevatorState
+		if len(backup.Elevators) == 1 {
+			sys = backup
+			elevator = backup.Elevators[nwMaster.LocalIP]
+		} else {
+			elevator = backup.Elevators[nwMaster.LocalIP]
+			sys.UnhandledOrdersUp = backup.UnhandledOrdersUp
+			sys.UnhandledOrdersDown = backup.UnhandledOrdersDown
+		}
 		elevator.CurrentBehaviour = scheduler.Idle
 		if elevator.HasMoreOrders() {
 			elevator.AwaitingCommand = true
 		}
 		sys.Elevators[nwMaster.LocalIP] = elevator
+		commands := sys.SendLightCommands()
+		for command := range commands {
+			nwSlave.SendMessage(command)
+		}
 	} else {
 		sys.AddElevator(nwMaster.LocalIP)
 	}
@@ -34,8 +47,6 @@ func Run(fromBackup bool) {
 	connectedElevators[nwMaster.LocalIP] = true
 	pingAlive := time.NewTicker(75 * time.Millisecond)
 	checkConnected := time.NewTicker(300 * time.Millisecond)
-	isActiveMaster := true
-
 	for {
 		select {
 		case message := <-recvFromSlaves:
@@ -88,16 +99,8 @@ func Run(fromBackup bool) {
 					}
 					go sys.WriteToFile()
 				}
-			}
-			//Select master as connected elevator with lowest IP
-			masterIP := nwSlave.LocalIP
-			for elevatorIP := range connectedElevators {
-				if elevatorIP < masterIP {
-					masterIP = elevatorIP
-				}
 				connectedElevators[elevatorIP] = false
 			}
-			isActiveMaster = (masterIP == nwMaster.LocalIP)
 			connectedElevators[nwMaster.LocalIP] = true
 		case message := <-recvFromMasters:
 			switch message.Response {
@@ -110,10 +113,24 @@ func Run(fromBackup bool) {
 						merge.Receiver = elevatorIP
 						nwMaster.SendMessage(merge)
 					}
+					fmt.Println(elevatorIP, " connected")
+					//Select master as connected elevator with lowest IP
+					masterIP := nwSlave.LocalIP
+					for elevatorIP := range connectedElevators {
+						if elevatorIP < masterIP {
+							masterIP = elevatorIP
+						}
+					}
+					isActiveMaster = (masterIP == nwMaster.LocalIP)
+					fmt.Println(masterIP, " is active master")
 				}
 			case cl.Backup:
 				receivedSys := scheduler.SystemFromMessage(message)
 				sys = scheduler.MergeSystems(sys, receivedSys)
+				commands := sys.SendLightCommands()
+				for command := range commands {
+					slaveCommands <- commnand
+				}
 			}
 		}
 	}

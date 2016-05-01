@@ -219,6 +219,15 @@ func (sys *System) SetDirection(elevatorIP string, direction int) {
 	}
 }
 
+func (sys *System) WasActive(localIP string) bool {
+	for elevIP, _ := range sys.Elevators {
+		if elevIP < localIP && elevIP != localIP {
+			return false
+		}
+	}
+	return true
+}
+
 func (sys *System) Print() {
 	fmt.Println()
 	for elevatorIP, elevator := range sys.Elevators {
@@ -243,7 +252,8 @@ func (sys *System) Print() {
 	fmt.Println("--------------------------")
 }
 
-func (sys *System) SendLightCommands(outgoingCommands chan network.Message) {
+func (sys *System) SendLightCommands() chan network.Message {
+	outgoingCommands := make(chan network.Message, 10*cl.Floors)
 	for floor := 0; floor < cl.Floors; floor++ {
 		assignedUp := false
 		assignedDown := false
@@ -271,6 +281,7 @@ func (sys *System) SendLightCommands(outgoingCommands chan network.Message) {
 			outgoingCommands <- network.Message{"", cl.All, "", cl.LightOffOuterUp, floor}
 		}
 	}
+	return outgoingCommands
 }
 
 func (sys *System) WriteToFile() {
