@@ -103,8 +103,9 @@ func Run(fromBackup bool) {
 						slaveCommands <- command
 					}
 					go sys.WriteToFile()
+				} else {
+					connectedElevators[elevatorIP] = false
 				}
-				connectedElevators[elevatorIP] = false
 			}
 			connectedElevators[nwMaster.LocalIP] = true
 		case message := <-recvFromMasters:
