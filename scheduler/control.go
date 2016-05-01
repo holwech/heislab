@@ -46,8 +46,8 @@ func (sys *System) NotifyFloor(elevatorIP string, floor int) {
 
 		if elevator.shouldStop(floor) {
 			elevator.AwaitingCommand = true
-			sys.Elevators[elevatorIP] = elevator
 		}
+		sys.Elevators[elevatorIP] = elevator
 	}
 }
 

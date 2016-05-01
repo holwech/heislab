@@ -68,6 +68,9 @@ func listen(receive chan CommData, port string) {
 		if message.Key == com_id {
 			receive <- message
 		}
+		if message.Response == cl.Backup {
+			PrintMessage(message)
+		}
 	}
 }
 

@@ -112,7 +112,7 @@ func SystemFromMessage(message network.Message) *System {
 		case map[string]interface{}:
 			for elevIP, elevInterface := range val.(map[string]interface{}) {
 				var elevTmp ElevatorState
-				fmt.Println(elevIP, elevInterface)
+				fmt.Println("yoyoyoyooyo")
 				for key2, val2 := range elevInterface.(map[string]interface{}) {
 					switch val2.(type) {
 					case float64:
@@ -126,11 +126,13 @@ func SystemFromMessage(message network.Message) *System {
 						}
 					case []interface{}:
 						for i, order := range val2.([]interface{}) {
-							if key == "OuterOrdersUp" {
+							if key2 == "OuterOrdersUp" {
+								fmt.Println("outer up")
 								elevTmp.OuterOrdersUp[i] = order.(bool)
-							} else if key == "OuterOrdersDown" {
+							} else if key2 == "OuterOrdersDown" {
 								elevTmp.OuterOrdersDown[i] = order.(bool)
 							} else {
+								fmt.Println(i, order)
 								elevTmp.InnerOrders[i] = order.(bool)
 							}
 						}

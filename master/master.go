@@ -53,8 +53,8 @@ func Run(fromBackup bool) {
 
 	connectedElevators := make(map[string]bool)
 	connectedElevators[nwMaster.LocalIP] = true
-	pingAlive := time.NewTicker(75 * time.Millisecond)
-	checkConnected := time.NewTicker(300 * time.Millisecond)
+	pingAlive := time.NewTicker(150 * time.Millisecond)
+	checkConnected := time.NewTicker(320 * time.Millisecond)
 	for {
 		select {
 		case message := <-recvFromSlaves:
@@ -149,6 +149,7 @@ func Run(fromBackup bool) {
 				}
 			case cl.Backup:
 				receivedSys := scheduler.SystemFromMessage(message)
+				receivedSys.Print()
 				scheduler.MergeSystems(sys, receivedSys)
 				commands := sys.SendLightCommands()
 				for _, command := range commands {
