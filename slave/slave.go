@@ -28,7 +28,7 @@ func Run(backup bool) {
 		case newFloor := <-floorChan:
 			nw.Send(cl.All, cl.Slave, cl.Floor, newFloor)
 			if newFloor != -1 {
-				MotorTimer.Reset(6 * time.Second)
+				MotorTimer.Reset(10 * time.Second)
 			}
 		case <-DoorTimer.C:
 			driver.SetDoorLamp(0)
@@ -39,10 +39,10 @@ func Run(backup bool) {
 			switch message.Response {
 			case cl.Up:
 				driver.SetMotorDirection(1)
-				MotorTimer.Reset(6 * time.Second)
+				MotorTimer.Reset(10 * time.Second)
 			case cl.Down:
 				driver.SetMotorDirection(-1)
-				MotorTimer.Reset(6 * time.Second)
+				MotorTimer.Reset(10 * time.Second)
 			case cl.Stop:
 				driver.SetMotorDirection(0)
 				driver.SetDoorLamp(1)

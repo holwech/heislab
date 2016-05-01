@@ -2,6 +2,7 @@ package backup
 
 import (
 	"fmt"
+	"github.com/holwech/heislab/driver"
 	"net"
 	"os"
 	"os/exec"
@@ -19,6 +20,7 @@ func checkError(err error) {
 func Run(flag string) {
 	if flag == "-b" {
 		listen()
+		driver.SetMotorDirection(0)
 		cmd := exec.Command("bash", "-c", "gnome-terminal -x go run main.go -b")
 		cmd.Start()
 		time.Sleep(time.Second)
@@ -77,4 +79,3 @@ func listen() {
 		}
 	}
 }
-
