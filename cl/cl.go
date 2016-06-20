@@ -1,8 +1,9 @@
 package cl
 
 // === This is a list of response-headers that the system uses to communicate
-// Commands from master
 
+// === Orders
+// Commands from master
 var Stop string = "STOP"
 var Up string = "UP"
 var Down string = "DOWN"
@@ -20,6 +21,11 @@ var Floor string = "FLOOR"
 var DoorClosed string = "DOORCLOSED"
 
 // === System status
+// = Response
+var System string = "SYSTEM"
+
+// = Content
+// Commands from both
 var Master string = "MASTER"
 var Slave string = "SLAVE"
 var Ping string = "PING"
@@ -28,19 +34,32 @@ var Ping string = "PING"
 var SetMaster string = "SETMASTER"
 var Startup string = "STARTUP"
 var Unknown string = "UNKNOWN"
+var EngineFail string = "ENGINEFAILED"
+var EngineOK string = "ENGINEOK"
 
 // Commands from master
 var JoinMaster string = "JOIN"
 var Backup string = "BACKUP"
-
-// Sender-address
 var All string = "ALL"
 
-// Communication package
-// Response
+// === Communication package
+// = Response
 var Connection string = "CONNECTION"
-// Content
+
+// = Content
 var OK string = "OK"
 var Timeout string = "TIMEOUT"
 var Sent string = "SENT"
-var Failed string = "Shame! Shame! Shame!"
+var Failed string = "FAILED"
+
+// === Ports
+var SReadPort string = ":25101"
+var SWritePort string = ":25010"
+
+var MReadPort string = ":25010"
+var MWritePort string = ":25101"
+
+var MtoMPort string = ":26010"
+
+// === System constants
+const Floors = 4

@@ -6,6 +6,7 @@ package driver
 #cgo LDFLAGS: -lpthread -lcomedi -lm
 */
 import "C"
+import "github.com/holwech/heislab/cl"
 
 const cOuterPanelUp C.int = C.int(0)
 const cOuterPanelDown C.int = C.int(1)
@@ -20,8 +21,6 @@ type OuterOrder struct {
 
 func InitElevator() (<-chan InnerOrder, <-chan OuterOrder, <-chan int) {
 	C.elev_init()
-	innerChan := ListenInnerPanel()
-	outerChan := ListenOuterPanel()
 	floorChan := ListenFloorSensor()
 
 	//Drive down to first floor
@@ -34,9 +33,10 @@ func InitElevator() (<-chan InnerOrder, <-chan OuterOrder, <-chan int) {
 		SetMotorDirection(0)
 	}
 
+	innerChan := ListenInnerPanel()
+	outerChan := ListenOuterPanel()
 	return innerChan, outerChan, floorChan
 }
-
 
 func SetMotorDirection(direction int) {
 	C.elev_set_motor_direction(C.int(direction))
@@ -68,9 +68,9 @@ func SetStopLamp(value int) {
 func ListenInnerPanel() <-chan InnerOrder {
 	orderChan := make(chan InnerOrder)
 	go func() {
-		buttonPressed := [4]bool{false, false, false, false}
+		buttonPressed := makeSlice()
 		for {
-			for floor := 0; floor < 4; floor++ {
+			for floor := 0; floor < cl.Floors; floor++ {
 				if C.elev_get_button_signal(cInnerPanel, C.int(floor)) != 0 {
 					if buttonPressed[floor] == false {
 						var order InnerOrder
@@ -90,10 +90,10 @@ func ListenInnerPanel() <-chan InnerOrder {
 func ListenOuterPanel() <-chan OuterOrder {
 	orderChan := make(chan OuterOrder)
 	go func() {
-		buttonPressedUp := [4]bool{false, false, false, false}
-		buttonPressedDown := [4]bool{false, false, false, false}
+		buttonPressedUp := makeSlice()
+		buttonPressedDown := makeSlice()
 		for {
-			for floor := 0; floor < 4; floor++ {
+			for floor := 0; floor < cl.Floors; floor++ {
 				if C.elev_get_button_signal(cOuterPanelUp, C.int(floor)) != 0 {
 					if buttonPressedUp[floor] == false {
 						var order OuterOrder
@@ -138,4 +138,12 @@ func ListenFloorSensor() <-chan int {
 		}
 	}()
 	return floorChan
+}
+
+func makeSlice() [cl.Floors]bool {
+	arr := [cl.Floors]bool{}
+	for i, _ := range arr {
+		arr[i] = false
+	}
+	return arr
 }
