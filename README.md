@@ -1,7 +1,7 @@
 # Heislab - TTK4145 Sanntidsprogrammering - Real-Time Programming
 
 ## Modules
-This project consists of 7 parts.
+Programmed by Adrian Fiorito and Joachim Holwech (commit history does not reflect this) in Go. This project got a 23/24 score. Branch 'devel-fix' is an alternative and cleaner implementation, with the downside that the code does not work. 
 
 ### Slave
 Slave initializes all other modules. It sets the master-module locally or joins any master-module already online on the local network.
