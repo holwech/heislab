@@ -37,6 +37,3 @@ func remoteInstall() {
 	}
 	fmt.Println("Exiting remote install")
 }
-func main() {
-	remoteInstall()
-}
